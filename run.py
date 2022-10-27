@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#! ./env/bin/python3
 
 '''
 This file is part of Lightning Network Probing Simulator.
@@ -55,7 +55,7 @@ MAX_MAX_NUM_CHANNELS = 5
 
 def main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--num_target_hops", default=100, type=int,
+	parser.add_argument("--num_target_hops", default=20, type=int,
 		help="The number of target hops per experiment run.")
 	parser.add_argument("--num_runs_per_experiment", default=10, type=int,
 		help="Run the same experiment this many times (results are averaged).")

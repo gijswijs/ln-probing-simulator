@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#! ./env/bin/python3
 
 '''
 This file is part of Lightning Network Probing Simulator.

@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#! ./env/bin/python3
 
 '''
 This file is part of Lightning Network Probing Simulator.
@@ -67,6 +67,7 @@ def plot(x_data, y_data_lists, x_label, y_label, title, filename, extension=None
 	plt.ylabel(y_label, fontsize=LABELSIZE)
 	for i, ax in enumerate((ax0, ax1)):
 		for data in y_data_lists[i]:
+			print(data)
 			data_means = [statistics.mean(data_i) for data_i in data[0]]
 			data_stdevs = [statistics.stdev(data_i) if len(data_i) > 1 else 0 for data_i in data[0]]
 			linestyle = data[2] if data[2] else "-"
