@@ -109,11 +109,13 @@ def experiment_1(prober, num_target_hops, num_runs_per_experiment, min_num_chann
 			"-" if not remote_probing else "-.", "blue" if not remote_probing else "red")
 		speed_line = (speeds, remote_or_direct + ", " + bs_or_nbs, line, color)
 		return gains_line, speed_line
+	
 	def run_and_store_result(gains_all_lines, speed_all_lines, pos, jamming, remote_probing, bs):
 		gains_line, speed_line = run_one_instance_of_experiment_1(jamming, remote_probing, bs)
 		if pos % 2 == 0:
 			gains_all_lines[pos // 2] = gains_line
 		speed_all_lines[pos] = speed_line
+	
 	from multiprocessing import Process, Manager
 	procs = []
 	manager = Manager()

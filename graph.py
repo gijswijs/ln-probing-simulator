@@ -105,14 +105,9 @@ def create_multigraph_from_snapshot(snapshot_filename):
 	g.add_edges_from(edges)
 	print("LN snapshot contains:", g.number_of_nodes(), "nodes,", g.number_of_edges(), "channels.")
 	# continue with the largest connected component
-	components = sorted(nx.connected_components(g), key=len, reverse=True)
-	print("Components:", len(components), ". Continuing with the largest component.")
-	def connected_component_subgraphs(G):
-		# https://github.com/rkistner/chinese-postman/issues/21#issuecomment-568980233
-		for c in nx.connected_components(G):
-			yield G.subgraph(c)
-	# create a new MultiGraph to unfreeze
-	g = nx.MultiGraph(max(connected_component_subgraphs(g), key=len))
+	print("Components:", nx.number_connected_components(g), "\nContinuing with the largest component.")
+	largest_cc = max(nx.connected_components(g), key=len)
+	g = g.subgraph(largest_cc).copy()
 	print("LN graph created with", g.number_of_nodes(), "nodes,", g.number_of_edges(), "channels.")
 	return g
 

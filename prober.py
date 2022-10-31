@@ -80,6 +80,7 @@ class Prober:
 		if first not in self.lnhopgraph.nodes():
 			self.lnhopgraph.add_node(first)
 		if second not in self.lnhopgraph.nodes():
+			print("We did not expect to add this node, because it should already be in the graph!")
 			self.lnhopgraph.add_node(second)
 		direction = dir0 if first < second else dir1
 		balance_at_first = capacity if direction == dir0 else 0
@@ -243,9 +244,12 @@ class Prober:
 						path = next(paths)
 						reached_target = self.issue_probe_along_path(path, amount)
 						made_probe = True
-					except StopIteration:
-						#print("Path iteration stopped for direction", "dir0" if direction else "dir1", ", amount:", amount)
-						known_failed_amount[direction] = amount
+					except RuntimeError as e:
+						if str(e) == 'generator raised StopIteration':
+							print("Path iteration stopped for direction", "dir0" if direction else "dir1", ", amount:", amount)
+							known_failed_amount[direction] = amount
+						else:
+							raise
 				else:
 					#print("Will not probe: we know NBS amount will fail")
 					pass
