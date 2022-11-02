@@ -1,0 +1,23 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run with snapshot",
+      "type": "python",
+      "request": "launch",
+      "program": "${cwd}/run.py",
+      "args": [
+        "--num_target_hops=5",
+        "--num_runs_per_experiment=2",
+        "--min_num_channels=1",
+        "--max_num_channels=3",
+        "--use_snapshot"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
