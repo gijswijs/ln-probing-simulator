@@ -1,0 +1,25 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "run pytest coverage (HTML)",
+            "type": "shell",
+            "command": "PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-report=html --cov-branch",
+            "problemMatcher": []
+        },
+        {
+            "label": "run pytest coverage (XML)",
+            "type": "shell",
+            "command": "PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-report=xml --cov-branch",
+            "problemMatcher": []
+        },
+        {
+            "label": "run pytest coverage (no report)",
+            "type": "shell",
+            "command": "PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-branch",
+            "problemMatcher": []
+        }
+    ]
+}
