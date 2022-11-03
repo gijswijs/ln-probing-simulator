@@ -56,20 +56,26 @@ def experiment_1(
     provided), using BS and NBS amount choice methods. Measure and plot
     the final achieved information gain and probing speed.
 
-    Parameters: - prober: the Prober object (None to run only direct
-    probing on synthetic hops) - num_target_hops: how many target hops
-    to choose / generate - num_runs_per_experiments: how many
-    experiments to run (gain and speed are averaged) - min_num_channels:
-    the minimal number of channels in hops to consider -
-    max_num_channels: the maximal number of channels in hops to consider
+    Parameters:
+    - prober: the Prober object (None to run only direct
+    probing on synthetic hops)
+    - num_target_hops: how many target hops
+    to choose / generate
+    - num_runs_per_experiments: how many
+    experiments to run (gain and speed are averaged)
+    - min_num_channels:
+    the minimal number of channels in hops to consider
+    - max_num_channels: the maximal number of channels in hops to
+      consider
     - use_snapshot:
-            if False, run only direct probing on synthetic hops; if
-            True, run direct and remote probing on synthetic and
-            snapshot hops.
+      if False, run only direct probing on synthetic hops; if
+      True, run direct and remote probing on synthetic and
+      snapshot hops.
     - jamming: use jamming (after h and g are fully probed without
       jamming)
 
-    Return: None (saves the resulting plots)
+    Return:
+    - None (saves the resulting plots)
     """
 
     print("\n\n**** Running experiment 1 ****")
@@ -225,11 +231,13 @@ def experiment_2(num_target_hops, num_runs_per_experiment):
     Measure the information gain and probing speed for different
     configurations of a 2-channel hop.
 
-    Parameters: - num_target_hops: how man target hops to consider -
-    num_runs_per_experiment: how many times to run each experiment
-    (results are averaged)
+    Parameters:
+    - num_target_hops: how man target hops to consider
+    - num_runs_per_experiment: how many times to run each experiment
+      (results are averaged)
 
-    Return: None (print resulting stats)
+    Return:
+    - None (print resulting stats)
     """
 
     print("\n\n**** Running experiment 2 ****")

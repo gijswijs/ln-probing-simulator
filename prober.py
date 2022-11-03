@@ -56,13 +56,13 @@ class Prober:
 
         Parameters:
         - snapshot_filename: a file with a clightning's
-        listchannels.json snapshot
+          listchannels.json snapshot
         - node_id: the node ID for the prober
         - entry_nodes: node IDs of nodes that the prober opens channels
-        to
+          to
         - entry_channel_capacity: the capacity of each entry channel
         - granularity: the prober wants to know balance up to this
-        granularity (in satoshis)
+          granularity (in satoshis)
         """
         self.our_node_id = node_id
         # parse snapshot date from filename to include in plot title
@@ -132,15 +132,17 @@ class Prober:
         excludes
           edges that we know cannot forward the required amount.
 
-        Parameters: - amount: the required payment amount -
-        exclude_nodes: additionally, exclude these nodes from the view
+        Parameters:
+        - amount: the required payment amount
+        - exclude_nodes: additionally, exclude these nodes from the view
         """
 
         def filter_edge(n1, n2):
             """
             Return True if the edge is kept, False if it is excluded.
 
-            Parameters: - n1, n2: node IDs of the vertices
+            Parameters:
+            - n1, n2: node IDs of the vertices
             """
             hop = self.lnhopgraph[n1][n2]["hop"]
             direction = dir0 if n1 < n2 else dir1
@@ -159,7 +161,8 @@ class Prober:
             to ensure the route includes the target hop as the last
             hop.
 
-            Parameters: - n: node ID of the node
+            Parameters:
+            - n: node ID of the node
             """
             return True if not exclude_nodes else n not in exclude_nodes
 
@@ -177,14 +180,17 @@ class Prober:
         w.r.t. to our knowledge so far. Return None is no such path
         exists.
 
-        Parameters: - n1: the first target node ID - n2: the second
-        target node ID - amount: the amount to send (in satoshis) -
-        exclude_nodes: the list of nodes to exclude from paths -
-        max_paths_suggested: stop generation after this many paths have
-        been generated
+        Parameters:
+        - n1: the first target node ID
+        - n2: the second target node ID
+        - amount: the amount to send (in satoshis)
+        - exclude_nodes: the list of nodes to exclude from paths
+        - max_paths_suggested: stop generation after this many paths
+          have been generated
 
-        Return: - next_path: the next path, or StopIteration if no more
-        paths exist or max_paths_suggested exceeded
+        Return:
+        - next_path: the next path, or StopIteration if no more
+          paths exist or max_paths_suggested exceeded
         """
         (n1, n2) = target_hop
         routing_graph = self.filtered_routing_graph_for_amount(
@@ -219,12 +225,14 @@ class Prober:
         """
         Send a probe along a path and observe the result.
 
-        Parameters: - path: a list of node pairs defining a path -
-        amount: the probe amount
+        Parameters:
+        - path: a list of node pairs defining a path
+        - amount: the probe amount
 
-        Return: - reached_target: True if the probe reached (either
-        passed or failed) the target hop,
-          False if the probe failed at an intermediary hop
+        Return:
+        - reached_target: True if the probe reached (either passed or
+          failed) the target hop, False if the probe failed at an
+          intermediary hop
         """
         # ensure we don't probe our own channels
         assert path[0] == self.our_node_id
@@ -252,16 +260,18 @@ class Prober:
         Probe a given target hop (in general, with multiple probes along
         different paths).
 
-        Parameters: - target_node_pair: a pair of node IDs defining the
-        target hop - bs: specify probe amount choice method - jamming:
-        use jamming-enhanced probing after "regular" probing -
-        max_failed_probes_per_hop: stop probing the hop is this many
-        probes didn't reach it - best_dir_chance: choosing between two
-        possible directions, flip a coin biased in favor of "best"
-        direction
+        Parameters:
+        - target_node_pair: a pair of node IDs defining the target hop
+        - bs: specify probe amount choice method
+        - jamming: use jamming-enhanced probing after "regular" probing
+        - max_failed_probes_per_hop: stop probing the hop is this many
+          probes didn't reach it
+        - best_dir_chance: choosing between two possible directions,
+          flip a coin biased in favor of "best" direction
 
-        Return: - num_probes: how many probes were made -
-        reached_target: True if we ever reached the target
+        Return:
+        - num_probes: how many probes were made
+        - reached_target: True if we ever reached the target
         """
         target_hop: Hop = self.lnhopgraph[target_node_pair[0]][
             target_node_pair[1]
@@ -275,8 +285,9 @@ class Prober:
             Probe the target hop in a given direction, with or without
             jamming.
 
-            Parameters: - direction: in which direction to probe -
-            jamming: True if we're jamming
+            Parameters:
+            - direction: in which direction to probe
+            - jamming: True if we're jamming
             """
             made_probe, reached_target = False, False
             if (
@@ -338,7 +349,8 @@ class Prober:
             Choose the NBS probing direction and amount and probe it
             (with multiple probes).
 
-            Parameters: - jamming: True if we're jamming
+            Parameters:
+            - jamming: True if we're jamming
             """
             # print("choose_dir_amount_and_probe: jamming = ", jamming)
             num_probes = 0
@@ -469,13 +481,16 @@ class Prober:
         """
         Probe a list of target hops afresh.
 
-        Parameters: - target_hops: a list of target hops - bs: probe
-        amount choice method - jamming: True if use jamming-enhanced
-        probing after "regular" probing
+        Parameters:
+        - target_hops: a list of target hops
+        - bs: probe amount choice method
+        - jamming: True if use jamming-enhanced probing after "regular"
+          probing
 
-        Return: - total_gain: total achieved informatoin gain on target
-        hops - probing speed: average probing speed (bit / message) on
-        target hops
+        Return:
+        - total_gain: total achieved informatoin gain on target hops
+        - probing speed: average probing speed (bit / message) on target
+          hops
         """
         self.reset_all_estimates()
 
@@ -516,13 +531,14 @@ class Prober:
         (parallel) channels. Note: we only consider hops that can
         forward in at least one direction.
 
-        Parameters: - max_num_target_hops: return at most this many
-        target hops
+        Parameters:
+        - max_num_target_hops: return at most this many target hops
           (may return fewer if there are too few hops with this many
           channels in the graph)
         - num_channels: the number of parallel channels in each hop
 
-        Return: a list of target hops
+        Return:
+        - a list of target hops
         """
         # we only choose targets that are enabled in at least one
         # direction

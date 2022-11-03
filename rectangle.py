@@ -48,8 +48,9 @@ class Rectangle:
         """
         Initialize a rectangle.
 
-        Parameters: l_vertex: the lower-left vertex u_vertex: the
-        upper-right vertex
+        Parameters:
+        - l_vertex: the lower-left vertex
+        - u_vertex: the upper-right vertex
         """
         if l_vertex and u_vertex:
             assert len(l_vertex) == len(u_vertex)
@@ -107,10 +108,11 @@ class Rectangle:
         """
         Check if this rectangle is inside another rectangle.
 
-        Parameters: - other_rectangle: the other ("outside") rectangle
+        Parameters:
+        - other_rectangle: the other ("outside") rectangle
 
-        Return: - True if this rectangle (self) is fully inside
-        other_rectangle
+        Return:
+        - True if this rectangle (self) is fully inside other_rectangle
         """
         if self.is_empty:
             # empty rectangle is inside any rectangle
@@ -133,10 +135,12 @@ class Rectangle:
         Intersect self with another rectangle. An intersection of two
         rectangles is a rectangle.
 
-        Parameters: - other_rectangle: the other rectangle
+        Parameters:
+        - other_rectangle: the other rectangle
 
-        Return: - the intersection Rectangle or EmptyRectangle if the
-        intersection is empty
+        Return:
+        - the intersection Rectangle or EmptyRectangle if the
+          intersection is empty
 
         """
         if self.is_empty or other_rectangle.is_empty:

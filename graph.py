@@ -56,9 +56,11 @@ def create_multigraph_from_snapshot(snapshot_filename):
     snapshot. Multigraph means each edge corresponds to an edge
     (parallel edges allowed).
 
-    Parameters: - snapshot_filename: path to the snapshot
+    Parameters:
+    - snapshot_filename: path to the snapshot
 
-    Return: the multigraph (the maximal connected component only).
+    Return:
+    - the multigraph (the maximal connected component only).
     """
     print("Creating LN graph from file:", snapshot_filename, "...")
     with open(snapshot_filename, "r") as snapshot_file:
@@ -161,10 +163,11 @@ def ln_multigraph_to_hop_graph(ln_multigraph):
     parallel edges. Instead, parallel channels are encoded in edge
     attributes.
 
-    Parameters: - ln_multigraph: LN model multigraph
+    Parameters:
+    - ln_multigraph: LN model multigraph
 
-    Return: - hop_graph: a non-directed graph where each edge models a
-    hop
+    Return:
+    - hop_graph: a non-directed graph where each edge models a hop
     """
     hop_graph = nx.Graph()
     # initialize hop graph with nodes and empty edge attributes

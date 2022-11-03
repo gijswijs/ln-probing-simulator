@@ -51,10 +51,12 @@ class Hop:
         """
         Initialize a hop.
 
-        Parameters: - capacities: a list of capacities - e_dir0: a list
-        of indices of channels enabled in dir0 - e_dir1: a list of
-        indices of channels enabled in dir1 - balances: a list of
-        balances (if None, balances are generated randomly)
+        Parameters:
+        - capacities: a list of capacities
+        - e_dir0: a list of indices of channels enabled in dir0
+        - e_dir1: a list of indices of channels enabled in dir1
+        - balances: a list of balances
+          (if None, balances are generated randomly)
         """
         self.N = len(capacities)
         assert self.N > 0
@@ -140,8 +142,9 @@ class Hop:
         We could similarly get all points, but it's very slow. We use
         this as a shortcut to stop probing when only one point remains.
 
-        Return: points: a list of points (each point is a list of self.N
-        coordinates).
+        Return:
+        - points: a list of points (each point is a list of self.N
+          coordinates).
         """
         R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
         R_u_u = self.R_h_u.intersect_with(self.R_g_u).intersect_with(R_b)
@@ -307,11 +310,12 @@ class Hop:
         - direction: True if the bound corresponds to a probe in dir0,
           False otherwise
         - bound: equals to a - 1, where a is the probing amount
-        (rationale: a probe of amount a cuts the points strictly less
-        than a).
+          (rationale: a probe of amount a cuts the points strictly less
+          than a).
 
-        Return: - eff_vertex: an N-element vector of coordinates of the
-        effective vertex.
+        Return:
+        - eff_vertex: an N-element vector of coordinates of the
+          effective vertex.
         """
 
         def effective_bound(bound, ch_i):
@@ -355,14 +359,16 @@ class Hop:
         _potential_ S(F) if we do a probe with amount a (when doing
         binary search for NBS amount selection)
 
-        Parameters: - R_h_l: a rectangle defining the     strict lower
-        bound on h - R_h_u: a rectangle defining the non-strict upper
-        bound on h - R_g_l: a rectangle defining the     strict lower
-        bound on g - R_g_u: a rectangle defining the non-strict upper
-        bound on g - R_b : a rectangle defining the current knowledge
-        about balance bounds (only if jamming)
+        Parameters:
+        - R_h_l: a rectangle defining the strict lower bound on h
+        - R_h_u: a rectangle defining the non-strict upper bound on h
+        - R_g_l: a rectangle defining the strict lower bound on g
+        - R_g_u: a rectangle defining the non-strict upper bound on g
+        - R_b : a rectangle defining the current knowledge about balance
+          bounds (only if jamming)
 
-        Return: - S_F: the number of points that:
+        Return:
+        - S_F: the number of points that:
           - belong to R_h_u and R_g_u and R_b
           - do NOT belong to R_h_l
           - do NOT belong to R_g_l
@@ -403,10 +409,12 @@ class Hop:
         Calculate the _potential_ S(F) if we the probe of amount a fails
         ("area under the cut").
 
-        Parameters: - direction: probe direction (dir0 / dir1) - a: the
-        probe amount
+        Parameters:
+        - direction: probe direction (dir0 / dir1)
+        - a: the probe amount
 
-        Return: S_F_a: the number of points in S(F) "under the cut".
+        Return:
+        - S_F_a: the number of points in S(F) "under the cut".
         """
         new_b_l = [0] * len(self.b_l)
         new_b_u = self.c.copy()
@@ -488,10 +496,12 @@ class Hop:
         under the cut _if_ we probed with this amount. Depending on if
         S_F_a < S_F or S_F_a > S_F, we increase / decrease a.
 
-        Parameters: - direction: dir0 or dir1
+        Parameters:
+        - direction: dir0 or dir1
 
-        Return: - a: the NBS amount, or None if the hop cannot forward
-        in this direction
+        Return:
+        - a: the NBS amount, or None if the hop cannot forward
+          in this direction
         """
         S_F_half = max(1, self.S_F // 2)
         if not jamming:
@@ -547,15 +557,18 @@ class Hop:
         """
         Suggest the NBS direction for the next probe.
 
-        Parameters: - bs: True if we do binary search only amounts;
-        False if we use NBS amount choice - jamming: are we doing
-        jamming-enhanced probing after regular probing -
-        prefer_small_amounts: prioritize small amounts vs cutting S(F)
-        in half more precisely - threshold_area_difference: the
-        difference in S(F) that we neglect when choosing between two
-        amounts
+        Parameters:
+        - bs: True if we do binary search only amounts;
+          False if we use NBS amount choice
+        - jamming: are we doing jamming-enhanced probing after regular
+          probing
+        - prefer_small_amounts: prioritize small amounts vs cutting S(F)
+          in half more precisely
+        - threshold_area_difference: the difference in S(F) that we
+          neglect when choosing between two amounts
 
-        Return: - chosen_dir: the suggested direction
+        Return:
+        - chosen_dir: the suggested direction
         """
         assert self.can_forward(dir0) or self.can_forward(dir1), self
         should_consider_dir0 = (
@@ -603,10 +616,12 @@ class Hop:
         """
         Update the bounds as a result of a probe.
 
-        Parameters: - direction: probe direction (dir0 or dir1) -
-        amount: probe amount
+        Parameters:
+        - direction: probe direction (dir0 or dir1)
+        - amount: probe amount
 
-        Return: - None (the current bounds are updated)
+        Return:
+        - None (the current bounds are updated)
         """
         # print("doing probe", amount, "in", "dir0" if direction else
         # "dir1")
