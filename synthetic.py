@@ -89,7 +89,6 @@ def generate_hops(
     min_capacity,
     max_capacity,
     probability_bidirectional=1,
-    all_max=True,
 ):
     """
     Generate num_target_hops random hops.
@@ -100,8 +99,6 @@ def generate_hops(
     - max_capacity: maximum capacity per channel
     - probability_bidirectional: probability that a channel is enabled
       in a given direction
-    - all_max: if True, minimal N and capacity = max values; if False,
-      both equal 1
 
     Return:
     - a list of generated hops
@@ -151,7 +148,7 @@ def probe_single_hop(hop, bs, jamming):
     return gain, num_probes, num_jams
 
 
-def probe_hop_without_jamming(hop, bs):
+def probe_hop_without_jamming(hop: Hop, bs, pss=False):
     """
     Probe a hop without jamming.
 
@@ -164,12 +161,12 @@ def probe_hop_without_jamming(hop, bs):
     """
     num_probes = 0
     while hop.worth_probing_h() or hop.worth_probing_g():
-        chosen_dir = hop.next_dir(bs, jamming=False)
+        chosen_dir = hop.next_dir(bs, jamming=False, pss=pss)
         if chosen_dir is None:
             print("Hop is disabled in both directions, cannot probe")
             break
-        amount = hop.next_a(chosen_dir, bs, jamming=False)
-        hop.probe(chosen_dir, amount)
+        amount = hop.next_a(chosen_dir, bs, jamming=False, pss=pss)
+        hop.probe(chosen_dir, amount, pss)
         num_probes += 1
     return num_probes
 

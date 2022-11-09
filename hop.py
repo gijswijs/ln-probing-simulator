@@ -46,7 +46,13 @@ dir1 = False
 
 class Hop:
     def __init__(
-        self, capacities, e_dir0, e_dir1, balances=None, granularity=1
+        self,
+        capacities,
+        e_dir0,
+        e_dir1,
+        balances=None,
+        granularity=1,
+        pss=False,
     ):
         """
         Initialize a hop.
@@ -79,27 +85,40 @@ class Hop:
             self.b = [randrange(self.c[i]) for i in range(self.N)]
         # h is how much a hop can forward in dir0, if no channels are
         # jammed
-        self.h = (
-            max([b for i, b in enumerate(self.b) if i in self.e[dir0]])
-            if self.can_forward(dir0)
-            else 0
-        )
+        if self.can_forward(dir0) and not pss:
+            self.h = max(
+                [b for i, b in enumerate(self.b) if i in self.e[dir0]]
+            )
+        elif self.can_forward(dir0):
+            self.h = sum(
+                [b for i, b in enumerate(self.b) if i in self.e[dir0]]
+            )
+        else:
+            self.h = 0
         # g is how much a hop can forward in dir1, if no channels are
         # jammed
-        self.g = (
-            max(
+
+        if self.can_forward(dir1) and not pss:
+            self.g = max(
                 [
                     self.c[i] - b
                     for i, b in enumerate(self.b)
                     if i in self.e[dir1]
                 ]
             )
-            if self.can_forward(dir1)
-            else 0
-        )
+        elif self.can_forward(dir1):
+            self.g = sum(
+                [
+                    self.c[i] - b
+                    for i, b in enumerate(self.b)
+                    if i in self.e[dir1]
+                ]
+            )
+        else:
+            self.g = 0
         self.granularity = granularity
         self.uncertainty = None  # will be set later
-        self.reset_estimates()
+        self.reset_estimates(pss)
 
     def can_forward(self, direction):
         # there is at least one channel enabled and not jammed in this
@@ -164,7 +183,7 @@ class Hop:
                 break
         return points
 
-    def update_dependent_hop_properties(self):
+    def update_dependent_hop_properties(self, pss=False):
         """
         Hop is defined by the current bounds (h_l, h_u, g_l, g_u).
         Rectangle-related properties are fully determined by these
@@ -177,46 +196,56 @@ class Hop:
         with probing). Hence, R_b is a Rectangle, whereas all others are
         ProbingRectangle's.
         """
-        self.R_h_l = ProbingRectangle(self, direction=dir0, bound=self.h_l)
-        self.R_h_u = ProbingRectangle(self, direction=dir0, bound=self.h_u)
-        self.R_g_l = ProbingRectangle(self, direction=dir1, bound=self.g_l)
-        self.R_g_u = ProbingRectangle(self, direction=dir1, bound=self.g_u)
+        if not pss:
+            self.R_h_l = ProbingRectangle(self, direction=dir0, bound=self.h_l)
+            self.R_h_u = ProbingRectangle(self, direction=dir0, bound=self.h_u)
+            self.R_g_l = ProbingRectangle(self, direction=dir1, bound=self.g_l)
+            self.R_g_u = ProbingRectangle(self, direction=dir1, bound=self.g_u)
         self.R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
-        self.S_F = self.S_F_generic(
-            self.R_h_l, self.R_h_u, self.R_g_l, self.R_g_u, self.R_b
-        )
+        if not pss:
+            self.S_F = self.S_F_generic(
+                self.R_h_l, self.R_h_u, self.R_g_l, self.R_g_u, self.R_b
+            )
+        else:
+            self.S_F = self.R_b.S()
         self.uncertainty = max(0, log2(self.S_F) - log2(self.granularity))
         assert all(
             -1 <= self.b_l[i] <= self.b_u[i] <= self.c[i]
             for i in range(len(self.c))
         ), self
-        assert -1 <= self.h_l < self.h <= self.h_u <= max(self.c), self
-        assert -1 <= self.g_l < self.g <= self.g_u <= max(self.c), self
+        if not pss:
+            assert -1 <= self.h_l < self.h <= self.h_u <= max(self.c), self
+            assert -1 <= self.g_l < self.g <= self.g_u <= max(self.c), self
+        else:
+            assert -1 <= self.h_l < self.h <= self.h_u <= sum(self.c), self
+            assert -1 <= self.g_l < self.g <= self.g_u <= sum(self.c), self
         # Assert that the true balances are inside F (as defined by the
         # current bounds)
-        b_inside_R_h_u = self.R_h_u.contains_point(self.b)
-        b_inside_R_g_u = self.R_g_u.contains_point(self.b)
-        b_inside_R_h_l = self.R_h_l.contains_point(self.b)
-        b_inside_R_g_l = self.R_g_l.contains_point(self.b)
+        if not pss:
+            b_inside_R_h_u = self.R_h_u.contains_point(self.b)
+            b_inside_R_g_u = self.R_g_u.contains_point(self.b)
+            b_inside_R_h_l = self.R_h_l.contains_point(self.b)
+            b_inside_R_g_l = self.R_g_l.contains_point(self.b)
+            # B must be within the upper bounds' rectangles
+            assert b_inside_R_h_u, "\nB:\n" + "\n".join(
+                [str(self.b), str(self.R_h_u)]
+            )
+            assert b_inside_R_g_u, "\nB:\n" + "\n".join(
+                [str(self.b), str(self.R_g_u)]
+            )
+            # B must be outside the lower bounds' rectangles
+            assert not b_inside_R_h_l, "\nB:\n" + "\n".join(
+                [str(self.b), str(self.R_h_l)]
+            )
+            assert not b_inside_R_g_l, "\nB:\n" + "\n".join(
+                [str(self.b), str(self.R_g_l)]
+            )
+
         b_inside_R_b = self.R_b.contains_point(self.b)
-        # B must be within the upper bounds' rectangles
-        assert b_inside_R_h_u, "\nB:\n" + "\n".join(
-            [str(self.b), str(self.R_h_u)]
-        )
-        assert b_inside_R_g_u, "\nB:\n" + "\n".join(
-            [str(self.b), str(self.R_g_u)]
-        )
-        # B must be outside the lower bounds' rectangles
-        assert not b_inside_R_h_l, "\nB:\n" + "\n".join(
-            [str(self.b), str(self.R_h_l)]
-        )
-        assert not b_inside_R_g_l, "\nB:\n" + "\n".join(
-            [str(self.b), str(self.R_g_l)]
-        )
         # B must be inside the current balance bounds rectangle
         assert b_inside_R_b, "\nB:\n" + "\n".join([str(self.b), str(self.R_b)])
 
-    def reset_estimates(self):
+    def reset_estimates(self, pss=False):
         """
         Set all variable hop parameters to their initial values. MUST be
         called on hop initialization and before running repeated probing
@@ -226,19 +255,38 @@ class Hop:
         self.g_l = -1
         # NB: setting upper bound to max(self.c) (and not 0) if hop
         # can't forward is correct from the rectangle theory viewpoint
-        self.h_u = (
-            max([c for (i, c) in enumerate(self.c) if i in self.e[dir0]])
-            if self.can_forward(dir0)
-            else max(self.c)
-        )
-        self.g_u = (
-            max([c for (i, c) in enumerate(self.c) if i in self.e[dir1]])
-            if self.can_forward(dir1)
-            else max(self.c)
-        )
+        if not pss:
+            if self.can_forward(dir0):
+                self.h_u = max(
+                    [c for (i, c) in enumerate(self.c) if i in self.e[dir0]]
+                )
+            else:
+                self.h_u = max(self.c)
+        else:
+            if self.can_forward(dir0):
+                self.h_u = sum(
+                    [c for (i, c) in enumerate(self.c) if i in self.e[dir0]]
+                )
+            else:
+                self.h_u = sum(self.c)
+        if not pss:
+            if self.can_forward(dir1):
+                self.g_u = max(
+                    [c for (i, c) in enumerate(self.c) if i in self.e[dir1]]
+                )
+            else:
+                self.g_u = max(self.c)
+        else:
+            if self.can_forward(dir1):
+                self.g_u = sum(
+                    [c for (i, c) in enumerate(self.c) if i in self.e[dir1]]
+                )
+            else:
+                self.g_u = sum(self.c)
+
         self.b_l = [-1] * self.N
         self.b_u = [self.c[i] for i in range(len(self.c))]
-        self.update_dependent_hop_properties()
+        self.update_dependent_hop_properties(pss)
 
     def __str__(self):
         s = ""
@@ -390,13 +438,13 @@ class Hop:
         R_l_u = R_h_l.intersect_with(R_g_u).intersect_with(R_b)
         R_l_l = R_h_l.intersect_with(R_g_l).intersect_with(R_b)
         """
-    print("\nR_h_l:", R_h_l, R_h_l.S()) print("\nR_h_u:", R_h_u,
-    R_h_u.S()) print("\nR_g_l:", R_g_l, R_g_l.S()) print("\nR_g_u:",
-    R_g_u, R_g_u.S()) print("\nR_b:\n", R_b, R_b.S()) print("\nAfter
-    intersecting with R_b:") print("\nR_u_u:", R_u_u, R_u_u.S())
-    print("\nR_u_l:", R_u_l, R_u_l.S()) print("\nR_l_u:", R_l_u,
-    R_l_u.S()) print("\nR_l_l:", R_l_l, R_l_l.S())
-    """
+        print("\nR_h_l:", R_h_l, R_h_l.S()) print("\nR_h_u:", R_h_u,
+        R_h_u.S()) print("\nR_g_l:", R_g_l, R_g_l.S()) print("\nR_g_u:",
+        R_g_u, R_g_u.S()) print("\nR_b:\n", R_b, R_b.S()) print("\nAfter
+        intersecting with R_b:") print("\nR_u_u:", R_u_u, R_u_u.S())
+        print("\nR_u_l:", R_u_l, R_u_l.S()) print("\nR_l_u:", R_l_u,
+        R_l_u.S()) print("\nR_l_l:", R_l_l, R_l_l.S())
+        """
         assert R_l_l.is_inside(R_u_u), self
         S_F = R_u_u.S() - R_u_l.S() - R_l_u.S() + R_l_l.S()
         # print(R_u_u.S(), "-", R_u_l.S(), "-", R_l_u.S(), "+",
@@ -404,14 +452,16 @@ class Hop:
         assert S_F >= 0, self
         return S_F
 
-    def S_F_a_expected(self, direction, a):
+    def S_F_a_expected(self, direction, a, pss=False, success=False):
         """
-        Calculate the _potential_ S(F) if we the probe of amount a fails
+        Calculate the _potential_ S(F) if the probe of amount a fails
         ("area under the cut").
 
         Parameters:
         - direction: probe direction (dir0 / dir1)
         - a: the probe amount
+        - pss: Payment Splitting and Switching assumed
+        - success: mimic probe success (only for PSS)
 
         Return:
         - S_F_a: the number of points in S(F) "under the cut".
@@ -424,37 +474,84 @@ class Hop:
             i for i in self.e[direction] if i not in self.j[direction]
         ]
         jamming = len(self.j[dir0]) > 0 or len(self.j[dir1]) > 0
-        # mimic the scenario when probe fails
-        if direction == dir0:
-            new_R_h_u = (
-                self.R_h_u
-                if jamming
-                else ProbingRectangle(self, direction=dir0, bound=a - 1)
-            )
-            new_R_g_u = self.R_g_u
-            for i in available_channels:
-                # probe failed => all available channels have
-                # insufficient balances
-                new_b_u[i] = min(new_b_u[i], a - 1)
-        else:
-            new_R_h_u = self.R_h_u
-            new_R_g_u = (
-                self.R_g_u
-                if jamming
-                else ProbingRectangle(self, direction=dir1, bound=a - 1)
-            )
-            if len(available_channels) == 1:
-                # we can only update the lower bound if there is only
-                # one available channel and we know the probe went
-                # through this channel
-                new_b_l[available_channels[0]] = max(
-                    new_b_l[available_channels[0]],
-                    self.c[available_channels[0]] - a,
+        if not pss:
+            # mimic the scenario when probe fails
+            if direction == dir0:
+                new_R_h_u = (
+                    self.R_h_u
+                    if jamming
+                    else ProbingRectangle(self, direction=dir0, bound=a - 1)
                 )
-        new_R_b = Rectangle(new_b_l, new_b_u)
-        S_F_a = self.S_F_generic(
-            self.R_h_l, new_R_h_u, self.R_g_l, new_R_g_u, new_R_b
-        )
+                new_R_g_u = self.R_g_u
+                for i in available_channels:
+                    # probe failed => all available channels have
+                    # insufficient balances
+                    new_b_u[i] = min(new_b_u[i], a - 1)
+            else:
+                new_R_h_u = self.R_h_u
+                new_R_g_u = (
+                    self.R_g_u
+                    if jamming
+                    else ProbingRectangle(self, direction=dir1, bound=a - 1)
+                )
+                if len(available_channels) == 1:
+                    # we can only update the lower bound if there is
+                    # only one available channel and we know the probe
+                    # went through this channel
+                    new_b_l[available_channels[0]] = max(
+                        new_b_l[available_channels[0]],
+                        self.c[available_channels[0]] - a,
+                    )
+            new_R_b = Rectangle(new_b_l, new_b_u)
+            S_F_a = self.S_F_generic(
+                self.R_h_l, new_R_h_u, self.R_g_l, new_R_g_u, new_R_b
+            )
+        else:
+            # PSS
+            if success:
+                # mimic the scenario when probe succeeds
+                if direction == dir0:
+                    for i in available_channels:
+                        new_b_l[i] = max(
+                            new_b_l[i],
+                            max(
+                                a
+                                - sum(
+                                    self.c[j]
+                                    for j in available_channels
+                                    if j != i
+                                )
+                                - 1,
+                                -1,
+                            ),
+                        )
+                else:
+                    for i in available_channels:
+                        new_b_u[i] = min(
+                            new_b_u[i],
+                            min(
+                                self.c[i]
+                                - a
+                                + sum(
+                                    self.c[j]
+                                    for j in available_channels
+                                    if j != i
+                                ),
+                                self.c[i],
+                            ),
+                        )
+            else:
+                # mimic the scenario when probe fails
+                if direction == dir0:
+                    new_h_u = a - 1
+                    for i in available_channels:
+                        new_b_u[i] = min(new_b_u[i], new_h_u)
+                else:
+                    new_g_u = a - 1
+                    for i in available_channels:
+                        new_b_l[i] = max(new_b_l[i], self.c[i] - new_g_u - 1)
+            new_R_b = Rectangle([b_l_i + 1 for b_l_i in new_b_l], new_b_u)
+            S_F_a = new_R_b.S()
         # print("  expected area under the cut:", S_F_a, "(assuming
         # failed probe)")
         return S_F_a
@@ -486,11 +583,11 @@ class Hop:
         # is there any uncertainty left in the hop?
         return self.uncertainty > 0
 
-    def next_a(self, direction, bs, jamming):
+    def next_a(self, direction, bs, jamming, pss=False, success=False):
         """
         Calculate the optimal (NBS) amount for probe in direction. The
         NBS amount shrinks S(F) by half. (In other words, the probe
-        leaves S_F/2 under the cut.) We look for the NBS amount a using
+        leaves S_F/2 under the cut.) We look for the NBS amount using a
         binary search: starting from the current bounds in the required
         direction, we choose a in the middle. We then check the area
         under the cut _if_ we probed with this amount. Depending on if
@@ -532,13 +629,20 @@ class Hop:
             # we only do binary search over S(F) in pre-jamming probing
             # phase
             while True:
-                S_F_a = self.S_F_a_expected(direction, a)
+                S_F_a = self.S_F_a_expected(direction, a, pss, success)
                 # print(a_l, a, a_u)
-                if S_F_a < S_F_half:
-                    a_l = a
+                if success:
+                    if S_F_a < S_F_half:
+                        a_u = a
+                    else:
+                        a_l = a
+                    new_a = (a_l + a_u + 1) // 2
                 else:
-                    a_u = a
-                new_a = (a_l + a_u + 1) // 2
+                    if S_F_a < S_F_half:
+                        a_l = a
+                    else:
+                        a_u = a
+                    new_a = (a_l + a_u + 1) // 2
                 if new_a == a:
                     break
                 a = new_a
@@ -553,6 +657,7 @@ class Hop:
         jamming,
         prefer_small_amounts=False,
         threshold_area_difference=0.1,
+        pss=False,
     ):
         """
         Suggest the NBS direction for the next probe.
@@ -566,6 +671,7 @@ class Hop:
           in half more precisely
         - threshold_area_difference: the difference in S(F) that we
           neglect when choosing between two amounts
+        - pss: assume Payment Split & Switch
 
         Return:
         - chosen_dir: the suggested direction
@@ -588,31 +694,80 @@ class Hop:
         elif not should_consider_dir1:
             chosen_dir = dir0
         else:
-            a_dir0 = self.next_a(dir0, bs, jamming)
-            a_dir1 = self.next_a(dir1, bs, jamming)
+            # next_a for the case the probe fails
+            a_dir0 = self.next_a(dir0, bs, jamming, pss, False)
+            a_dir1 = self.next_a(dir1, bs, jamming, pss, False)
+            if pss:
+                a_dir0_success = self.next_a(dir0, bs, jamming, pss, True)
+                a_dir1_success = self.next_a(dir1, bs, jamming, pss, True)
+
             if bs or prefer_small_amounts:
                 # choose smaller amount: more likely to pass
-                chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
+                if pss:
+                    a_smallest = min(
+                        a_dir0, a_dir1, a_dir0_success, a_dir1_success
+                    )
+                    switch = {
+                        a_dir0: dir0,
+                        a_dir1: dir1,
+                        a_dir0_success: dir0,
+                        a_dir1_success: dir1,
+                    }
+                    chosen_dir = switch.get(a_smallest)
+                else:
+                    chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
+
             else:
                 # prefer amount that splits in half better
                 S_F_half = max(1, self.S_F // 2)
-                S_F_a_dir0 = self.S_F_a_expected(dir0, a_dir0)
-                S_F_a_dir1 = self.S_F_a_expected(dir1, a_dir1)
+                S_F_a_dir0 = self.S_F_a_expected(dir0, a_dir0, pss, False)
+                S_F_a_dir1 = self.S_F_a_expected(dir1, a_dir1, pss, False)
+                if pss:
+                    S_F_a_dir0_success = self.S_F_a_expected(
+                        dir0, a_dir0_success, pss, True
+                    )
+                    S_F_a_dir1_success = self.S_F_a_expected(
+                        dir1, a_dir1_success, pss, True
+                    )
+
                 if (
                     abs(S_F_a_dir0 - S_F_a_dir1) / S_F_half
                     < threshold_area_difference
                 ):
                     chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
-                else:
+                elif (
+                    pss
+                    and abs(S_F_a_dir0_success - S_F_a_dir1_success) / S_F_half
+                    < threshold_area_difference
+                ):
                     chosen_dir = (
-                        dir0
-                        if abs(S_F_a_dir0 - S_F_half)
-                        < abs(S_F_a_dir1 - S_F_half)
-                        else dir1
+                        dir0 if a_dir0_success < a_dir1_success else dir1
                     )
+                else:
+                    if pss:
+                        S_F_a_smallest = min(
+                            S_F_a_dir0 - S_F_half,
+                            S_F_a_dir1 - S_F_half,
+                            S_F_a_dir0_success - S_F_half,
+                            S_F_a_dir1_success - S_F_half,
+                        )
+                        switch = {
+                            S_F_a_dir0 - S_F_half: dir0,
+                            S_F_a_dir1 - S_F_half: dir1,
+                            S_F_a_dir0_success - S_F_half: dir0,
+                            S_F_a_dir1_success - S_F_half: dir1,
+                        }
+                        chosen_dir = switch.get(S_F_a_smallest)
+                    else:
+                        chosen_dir = (
+                            dir0
+                            if abs(S_F_a_dir0 - S_F_half)
+                            < abs(S_F_a_dir1 - S_F_half)
+                            else dir1
+                        )
         return chosen_dir
 
-    def probe(self, direction, amount):
+    def probe(self, direction, amount, pss=False):
         """
         Update the bounds as a result of a probe.
 
@@ -637,8 +792,11 @@ class Hop:
         def b_in_dir(i, direction):
             return self.b[i] if direction == dir0 else self.c[i] - self.b[i]
 
-        probe_passed = amount <= max(
-            b_in_dir(i, direction) for i in available_channels
+        probe_passed = (
+            amount <= max(b_in_dir(i, direction) for i in available_channels)
+            if not pss
+            else amount
+            <= sum(b_in_dir(i, direction) for i in available_channels)
         )
         if direction == dir0:
             # should only update if the amount is between current bounds
@@ -650,19 +808,51 @@ class Hop:
                 if should_update_h and not jamming:
                     # update hop-level lower bound
                     self.h_l = amount - 1
-                    if len(self.e[dir0]) == 1:
-                        # if only one channel is enabled, we can update
-                        # this channel's lower bound
-                        self.b_l[self.e[dir0][0]] = max(
-                            self.b_l[self.e[dir0][0]], self.h_l
-                        )
-                    if len(self.e[dir1]) > 0:
-                        # if some channels are enabled in the opposite
-                        # direction, update that upper bound
-                        self.g_u = min(
-                            self.g_u,
-                            max(self.c[i] - self.b_l[i] for i in self.e[dir1]),
-                        )
+                    if not pss:
+                        if len(self.e[dir0]) == 1:
+                            # if only one channel is enabled, we can
+                            # update this channel's lower bound
+                            self.b_l[self.e[dir0][0]] = max(
+                                self.b_l[self.e[dir0][0]], self.h_l
+                            )
+                        if len(self.e[dir1]) > 0:
+                            # if some channels are enabled in the
+                            # opposite direction, update that upper
+                            # bound
+                            self.g_u = min(
+                                self.g_u,
+                                max(
+                                    self.c[i] - self.b_l[i] - 1
+                                    for i in self.e[dir1]
+                                ),
+                            )
+                    else:
+                        # PSS: Update a channel's lower bound if the
+                        # amount is higher than the combined capacities
+                        # of the other channels in this hop that are
+                        # enabled in dir0
+                        for i in self.e[dir0]:
+                            self.b_l[i] = max(
+                                self.b_l[i],
+                                max(
+                                    amount
+                                    - sum(
+                                        self.c[j]
+                                        for j in self.e[dir0]
+                                        if j != i
+                                    )
+                                    - 1,
+                                    -1,
+                                ),
+                            )
+                        if len(self.e[dir1]) > 0:
+                            # if some channels are enabled in the
+                            # opposite direction, update that upper
+                            # bound
+                            self.g_u = min(
+                                self.g_u,
+                                sum(self.c) - self.h_l - 1,
+                            )
                 if jamming:
                     # if we're jamming, we can update the only unjammed
                     # channel's lower bound
@@ -678,15 +868,32 @@ class Hop:
                         # update all channels' upper bounds
                         self.b_u[i] = min(self.b_u[i], self.h_u)
                     if len(self.e[dir1]) > 0:
-                        # if some channels are enabled in the opposite
-                        # direction, update their lower bound
-                        self.g_l = max(
-                            self.g_l,
-                            min(
-                                self.c[i] - self.b_u[i] - 1
-                                for i in self.e[dir1]
-                            ),
-                        )
+                        if not pss:
+                            # if some channels are enabled in the
+                            # opposite direction, update their lower
+                            # bound
+                            self.g_l = max(
+                                self.g_l,
+                                min(
+                                    self.c[i] - self.b_u[i] - 1
+                                    for i in self.e[dir1]
+                                ),
+                            )
+                        else:
+                            self.g_l = max(
+                                self.g_l,
+                                min(
+                                    sum(
+                                        self.c[j]
+                                        for j in self.e[dir0]
+                                        if j != i
+                                    )
+                                    + self.c[i]
+                                    - self.b_u[i]
+                                    - 1
+                                    for i in self.e[dir0]
+                                ),
+                            )
                 if jamming:
                     # if we're jamming, we can update the only unjammed
                     # channel's upper bound
@@ -699,15 +906,37 @@ class Hop:
                 # print("probe passed in dir1")
                 if should_update_g and not jamming:
                     self.g_l = amount - 1
-                    if len(self.e[dir1]) == 1:
-                        self.b_u[self.e[dir1][0]] = min(
-                            self.b_u[self.e[dir1][0]],
-                            self.c[self.e[dir1][0]] - self.g_l - 1,
-                        )
-                    if len(self.e[dir0]) > 0:
-                        self.h_u = min(
-                            self.h_u, max(self.b_u[i] for i in self.e[dir0])
-                        )
+                    if not pss:
+                        if len(self.e[dir1]) == 1:
+                            self.b_u[self.e[dir1][0]] = min(
+                                self.b_u[self.e[dir1][0]],
+                                self.c[self.e[dir1][0]] - self.g_l - 1,
+                            )
+                        if len(self.e[dir0]) > 0:
+                            self.h_u = min(
+                                self.h_u,
+                                max(self.b_u[i] for i in self.e[dir0]),
+                            )
+                    else:
+                        for i in self.e[dir1]:
+                            self.b_u[i] = min(
+                                self.b_u[i],
+                                min(
+                                    self.c[i]
+                                    - amount
+                                    + sum(
+                                        self.c[j]
+                                        for j in self.e[dir1]
+                                        if j != i
+                                    ),
+                                    self.c[i],
+                                ),
+                            )
+                        if len(self.e[dir0]) > 0:
+                            self.h_u = min(
+                                self.h_u,
+                                sum(self.c) - self.g_l - 1,
+                            )
                 if jamming:
                     self.b_u[available_channels[0]] = min(
                         self.b_u[available_channels[0]],
@@ -722,17 +951,33 @@ class Hop:
                             self.b_l[i], self.c[i] - self.g_u - 1
                         )
                     if len(self.e[dir0]) > 0:
-                        self.h_l = max(
-                            self.h_l, min(self.b_l[i] for i in self.e[dir0])
-                        )
+                        if not pss:
+                            self.h_l = max(
+                                self.h_l,
+                                min(self.b_l[i] for i in self.e[dir0]),
+                            )
+                        else:
+                            self.h_l = max(
+                                self.h_l,
+                                min(
+                                    sum(
+                                        self.c[j]
+                                        for j in self.e[dir1]
+                                        if j != i
+                                    )
+                                    - self.b_l[i]
+                                    for i in self.e[dir0]
+                                ),
+                            )
+
                 if jamming:
                     self.b_l[available_channels[0]] = max(
                         self.b_l[available_channels[0]],
                         self.c[available_channels[0]] - amount,
                     )
         # print("after probe:", self.h_l, self.h_u, self.g_l, self.g_u)
-        self.update_dependent_hop_properties()
-        if self.uncertainty == 0:
+        self.update_dependent_hop_properties(pss)
+        if self.uncertainty == 0 and not pss:
             corner_points = self.get_corner_points()
             assert len(corner_points) <= 1
             if len(corner_points) == 1:
@@ -757,5 +1002,5 @@ class Hop:
             else:
                 print("Corners are not viable points, continue probing")
                 pass
-            self.update_dependent_hop_properties()
+            self.update_dependent_hop_properties(pss)
         return probe_passed
