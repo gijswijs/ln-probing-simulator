@@ -197,7 +197,7 @@ def jam_hop_and_probe_single_channel(hop, bs, i):
     return num_probes, num_jams
 
 
-def probe_hops_direct(hops, bs, jamming):
+def probe_hops_direct(hops, bs, jamming, pss=False):
     """
     Probe each hop from a list of hops.
 
@@ -213,7 +213,7 @@ def probe_hops_direct(hops, bs, jamming):
     - probing_speed: average bits per probe obtained
     """
     for hop in hops:
-        hop.reset_estimates()
+        hop.set_h_and_g(pss)
     initial_uncertainty_total = sum([hop.uncertainty for hop in hops])
     gains, probes_list = [], []
     for hop in hops:

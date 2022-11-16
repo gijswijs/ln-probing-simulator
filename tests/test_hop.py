@@ -3,6 +3,12 @@ import pytest
 from hop import Hop, dir0, dir1
 
 
+@pytest.fixture
+def hop_instance():
+    hop = Hop([150000], [0], [0], [70000])
+    return hop
+
+
 def test_can_forward(hop_instance: Hop):
     can_forward_dir0 = hop_instance.can_forward(dir0)
     can_forward_dir1 = hop_instance.can_forward(dir1)
@@ -13,6 +19,7 @@ def test_can_forward(hop_instance: Hop):
 
 def test_probe_hop_with_single_channel(hop_instance: Hop):
     pss = False
+    hop_instance.set_h_and_g(pss)
     hop_instance.probe(dir0, 20000, pss)
     b_l_dir0 = hop_instance.b_l
     h_l_dir0 = hop_instance.h_l
@@ -39,8 +46,9 @@ def test_probe_hop_with_single_channel(hop_instance: Hop):
 
 
 def test_probe_hop_with_multiple_channels_no_pss():
-    hop = Hop([100000, 60000], [0, 1], [0, 1], [70000, 50000])
     pss = False
+    hop = Hop([100000, 60000], [0, 1], [0, 1], [70000, 50000])
+    hop.set_h_and_g(pss)
     hop.probe(dir0, 65000, pss)
     # The below assert is valid with the original code, but I disagree
     # with it. If an probing amount is so large it can only be forwarded
@@ -65,8 +73,8 @@ def test_probe_hop_with_multiple_channels_pss():
         [0, 1, 2, 3],
         [0, 1, 2, 3],
         [31000, 32000, 35000, 90000],
-        pss=pss,
     )
+    hop.set_h_and_g(pss)
     hop.probe(dir0, 180000, pss)
     assert hop.h_l == 179999
     assert hop.h_u == 270000
@@ -89,7 +97,8 @@ def test_probe_hop_with_multiple_channels_pss():
     ],
 )
 def test_next_a(C, B, pss, direction, success):
-    hop = Hop(C, [0, 1], [0, 1], B, pss=pss)
+    hop = Hop(C, [0, 1], [0, 1], B)
+    hop.set_h_and_g(pss)
     initial_S_F = hop.S_F
     amount = hop.next_a(direction, False, False, pss, success)
     print(amount)
@@ -110,13 +119,8 @@ def test_next_a(C, B, pss, direction, success):
 def test_next_dir(C, B, pss, bs, jamming):
     # TODO: I doubt if this has any use in a PSS setting. I guess it
     # works, but the calculations seem meaningless to me
-    hop = Hop(C, [0, 1], [0, 1], B, pss=pss)
+    hop = Hop(C, [0, 1], [0, 1], B)
+    hop.set_h_and_g(pss)
     direction = hop.next_dir(bs, jamming, pss=pss)
     print("dir0" if direction == dir0 else "dir1")
     assert True
-
-
-@pytest.fixture
-def hop_instance():
-    hop = Hop([150000], [0], [0], [70000])
-    return hop

@@ -38,7 +38,15 @@ SAVE_RESULTS_TO = "results"
 
 
 def plot(
-    x_data, y_data_lists, x_label, y_label, title, filename, extension=None
+    x_data,
+    y_data_lists,
+    x_label,
+    y_label,
+    title,
+    filename,
+    extension=None,
+    jamming=True,
+    pss=False,
 ):
     """
     Plot data and save a plot.
@@ -61,9 +69,15 @@ def plot(
     TICKSIZE = 18
     FIGSIZE = (14, 8)
     # assert(len(y_data_lists) == 2)
-    fig, (ax0, ax1) = plt.subplots(
-        1, 2, figsize=FIGSIZE, sharex=True, sharey=True
-    )
+    if len(y_data_lists) == 2:
+        fig, (ax0, ax1) = plt.subplots(
+            1, 2, figsize=FIGSIZE, sharex=True, sharey=True
+        )
+    else:
+        fig, (ax0) = plt.subplots(
+            1, 1, figsize=FIGSIZE, sharex=True, sharey=True
+        )
+
     # fig.suptitle(title, fontsize=LABELSIZE)
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axis
@@ -77,7 +91,11 @@ def plot(
     )
     plt.xlabel(x_label, fontsize=LABELSIZE)
     plt.ylabel(y_label, fontsize=LABELSIZE)
-    for i, ax in enumerate((ax0, ax1)):
+    if len(y_data_lists) == 2:
+        subplots = enumerate((ax0, ax1))
+    else:
+        subplots = enumerate([ax0])
+    for i, ax in subplots:
         for data in y_data_lists[i]:
             print(data)
             data_means = [statistics.mean(data_i) for data_i in data[0]]
@@ -88,22 +106,24 @@ def plot(
             linestyle = data[2] if data[2] else "-"
             color = data[3] if data[3] else None
             if color:
-                ax.errorbar(
+                eb = ax.errorbar(
                     x_data,
                     data_means,
                     yerr=data_stdevs,
-                    fmt=linestyle,
                     color=data[3],
                     label=data[1],
                 )
+                # eb[-1][0].set_linestyle(linestyle)
+                eb[0].set_linestyle(linestyle)
             else:
-                ax.errorbar(
+                eb = ax.errorbar(
                     x_data,
                     data_means,
                     yerr=data_stdevs,
-                    fmt=linestyle,
                     label=data[1],
                 )
+                # eb[-1][0].set_linestyle(linestyle)
+                eb[0].set_linestyle(linestyle)
         ax.set_xlim([0, max(x_data) + 1])
         ax.set_ylim([0, 1.1])
         plt.tight_layout()

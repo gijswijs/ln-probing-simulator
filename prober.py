@@ -221,7 +221,7 @@ class Prober:
                 yield from ()
         yield from ()
 
-    def issue_probe_along_path(self, path, amount):
+    def issue_probe_along_path(self, path, amount, pss=False):
         """
         Send a probe along a path and observe the result.
 
@@ -242,7 +242,7 @@ class Prober:
             reached_target = n2 == path[-1]
             hop: Hop = self.lnhopgraph[n1][n2]["hop"]
             direction = dir0 if n1 < n2 else dir1
-            probe_passed = hop.probe(direction, amount)
+            probe_passed = hop.probe(direction, amount, pss)
             if not probe_passed:
                 break
         # print("probe reached_target?", reached_target)
@@ -255,6 +255,7 @@ class Prober:
         jamming,
         max_failed_probes_per_hop=10,
         best_dir_chance=0.75,
+        pss=False,
     ):
         """
         Probe a given target hop (in general, with multiple probes along
@@ -268,6 +269,7 @@ class Prober:
           probes didn't reach it
         - best_dir_chance: choosing between two possible directions,
           flip a coin biased in favor of "best" direction
+        - assume Payment Split & Switch
 
         Return:
         - num_probes: how many probes were made
@@ -280,7 +282,7 @@ class Prober:
         # print("\n----------------------\nProbing hop",
         # target_node_pair) print(target_hop)
 
-        def probe_target_hop_in_direction(direction, jamming):
+        def probe_target_hop_in_direction(direction, jamming, pss):
             """
             Probe the target hop in a given direction, with or without
             jamming.
@@ -295,7 +297,7 @@ class Prober:
                 if jamming
                 else target_hop.worth_probing_h_or_g(direction)
             ):
-                amount = target_hop.next_a(direction, bs, jamming)
+                amount = target_hop.next_a(direction, bs, jamming, pss=pss)
                 # print("Suggest amount", amount)
                 guaranteed_fail = (
                     amount >= known_failed_amount[direction]
@@ -321,7 +323,7 @@ class Prober:
                         # if direction else "dir1", ", amount:", amount)
                         path = next(paths)
                         reached_target = self.issue_probe_along_path(
-                            path, amount
+                            path, amount, pss=pss
                         )
                         made_probe = True
                     except RuntimeError as e:
@@ -344,7 +346,7 @@ class Prober:
                 pass
             return made_probe, reached_target
 
-        def choose_dir_amount_and_probe(jamming):
+        def choose_dir_amount_and_probe(jamming, pss):
             """
             Choose the NBS probing direction and amount and probe it
             (with multiple probes).
@@ -355,7 +357,7 @@ class Prober:
             # print("choose_dir_amount_and_probe: jamming = ", jamming)
             num_probes = 0
             # this is the suggested (best) direction
-            best_dir = target_hop.next_dir(bs, jamming)
+            best_dir = target_hop.next_dir(bs, jamming, pss=pss)
             if jamming:
                 available_channels_alt_dir = [
                     i
@@ -423,7 +425,7 @@ class Prober:
                                 else alt_dir
                             )
                 made_probe, reached_target = probe_target_hop_in_direction(
-                    direction, jamming
+                    direction, jamming, pss
                 )
                 if not reached_target:
                     num_probes_failed += 1
@@ -442,7 +444,7 @@ class Prober:
                 num_probes,
                 reached_target,
                 probes_failed,
-            ) = choose_dir_amount_and_probe(jamming=False)
+            ) = choose_dir_amount_and_probe(jamming=False, pss=pss)
             total_num_probes += num_probes
             total_num_probes_failed += probes_failed
             if not reached_target:
@@ -466,7 +468,7 @@ class Prober:
                         num_probes,
                         reached_target,
                         num_probes_failed,
-                    ) = choose_dir_amount_and_probe(jamming=True)
+                    ) = choose_dir_amount_and_probe(jamming=True, pss=pss)
                     total_num_probes += num_probes
                     if not reached_target:
                         break
@@ -477,7 +479,7 @@ class Prober:
         # print("Path failed", total_num_probes_failed, "times.")
         return total_num_probes
 
-    def probe_hops(self, target_hops, bs, jamming):
+    def probe_hops(self, target_hops, bs, jamming, pss=False):
         """
         Probe a list of target hops afresh.
 
@@ -492,7 +494,7 @@ class Prober:
         - probing speed: average probing speed (bit / message) on target
           hops
         """
-        self.reset_all_estimates()
+        self.reset_all_estimates(pss)
 
         def uncertainty_for_target_hops():
             return sum(
@@ -505,7 +507,7 @@ class Prober:
         initial_uncertainty_total = uncertainty_for_target_hops()
         num_probes = sum(
             [
-                self.probe_hop(target_hop, bs, jamming)
+                self.probe_hop(target_hop, bs, jamming, pss=pss)
                 for target_hop in target_hops
             ]
         )
@@ -519,9 +521,9 @@ class Prober:
         total_gain = total_gain_bits / initial_uncertainty_total
         return total_gain, probing_speed
 
-    def reset_all_estimates(self):
+    def reset_all_estimates(self, pss=False):
         for n1, n2 in self.lnhopgraph.edges():
-            self.lnhopgraph[n1][n2]["hop"].reset_estimates()
+            self.lnhopgraph[n1][n2]["hop"].set_h_and_g(pss)
 
     def choose_target_hops_with_n_channels(
         self, max_num_target_hops, num_channels

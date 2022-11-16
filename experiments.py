@@ -39,6 +39,10 @@ from plot import plot
 from prober import Prober
 from synthetic import generate_hops, probe_hops_direct
 
+BITCOIN = 100 * 1000 * 1000
+MIN_CAPACITY_SYNTHETIC = 0.01 * BITCOIN
+MAX_CAPACITY_SYNTHETIC = 10 * BITCOIN
+
 
 def experiment_1(
     prober: Prober,
@@ -80,95 +84,11 @@ def experiment_1(
 
     print("\n\n**** Running experiment 1 ****")
 
-    BITCOIN = 100 * 1000 * 1000
-    MIN_CAPACITY_SYNTHETIC = 0.01 * BITCOIN
-    MAX_CAPACITY_SYNTHETIC = 10 * BITCOIN
     NUM_CHANNELS_IN_TARGET_HOPS = [
         n for n in range(min_num_channels, max_num_channels + 1)
     ]
+    pss = False
     # Hops with 5+ channels are very rare in the snapshot.
-
-    def run_one_instance_of_experiment_1(jamming, remote_probing, bs):
-        """
-        Run experiment for all numbers of channels with one parameter
-        set. Yields two lines on two graphs: gains and speeds.
-        """
-        gains = [0 for _ in range(len(NUM_CHANNELS_IN_TARGET_HOPS))]
-        speeds = [0 for _ in range(len(NUM_CHANNELS_IN_TARGET_HOPS))]
-        for i, num_channels in enumerate(NUM_CHANNELS_IN_TARGET_HOPS):
-            # print("\n\nN = ", num_channels)
-            gain_list, speed_list = [], []
-            for num_experiment in range(num_runs_per_experiment):
-                # print("  experiment", num_experiment)
-                if prober is not None:
-                    # pick target hops from snapshot, probe them in
-                    # direct and remote modes
-                    target_hops_node_pairs = (
-                        prober.choose_target_hops_with_n_channels(
-                            num_target_hops, num_channels
-                        )
-                    )
-                    target_hops = [
-                        prober.lnhopgraph[u][v]["hop"]
-                        for (u, v) in target_hops_node_pairs
-                    ]
-                else:
-                    # generate target hops, probe them in direct mode
-                    target_hops = generate_hops(
-                        num_target_hops,
-                        num_channels,
-                        MIN_CAPACITY_SYNTHETIC,
-                        MAX_CAPACITY_SYNTHETIC,
-                    )
-                # print("Selected" if prober is not None else
-                # "Generated", len(target_hops), "target hops with",
-                # num_channels, "channels.")
-                if remote_probing:
-                    assert prober is not None
-                    gain, speed = prober.probe_hops(
-                        target_hops_node_pairs, bs=bs, jamming=jamming
-                    )
-                else:
-                    gain, speed = probe_hops_direct(
-                        target_hops, bs=bs, jamming=jamming
-                    )
-                gain_list.append(gain)
-                speed_list.append(speed)
-            gains[i] = gain_list
-            speeds[i] = speed_list
-        # prepare data for information gains plot
-        remote_or_direct = "Remote" if remote_probing else "Direct"
-        bs_or_nbs = "non-optimized" if bs else "optimized"
-        colors = ["blue", "purple", "red", "orange"]
-        color = (
-            (colors[3] if bs else colors[2])
-            if remote_probing
-            else (colors[1] if bs else colors[0])
-        )
-        lines = ["-", "--", "-.", ":"]
-        line = (
-            (lines[3] if bs else lines[2])
-            if remote_probing
-            else (lines[1] if bs else lines[0])
-        )
-        gains_line = (
-            gains,
-            remote_or_direct + " probing",
-            "-" if not remote_probing else "-.",
-            "blue" if not remote_probing else "red",
-        )
-        speed_line = (speeds, remote_or_direct + ", " + bs_or_nbs, line, color)
-        return gains_line, speed_line
-
-    def run_and_store_result(
-        gains_all_lines, speed_all_lines, pos, jamming, remote_probing, bs
-    ):
-        gains_line, speed_line = run_one_instance_of_experiment_1(
-            jamming, remote_probing, bs
-        )
-        if pos % 2 == 0:
-            gains_all_lines[pos // 2] = gains_line
-        speed_all_lines[pos] = speed_line
 
     from multiprocessing import Manager, Process
 
@@ -197,6 +117,11 @@ def experiment_1(
                         jamming,
                         remote_probing,
                         bs,
+                        pss,
+                        NUM_CHANNELS_IN_TARGET_HOPS,
+                        num_runs_per_experiment,
+                        prober,
+                        num_target_hops,
                     ),
                 )
                 procs.append(proc)
@@ -205,6 +130,15 @@ def experiment_1(
         proc.join()
     targets_source = "snapshot" if prober is not None else "synthetic"
     x_label = "\nNumber of channels in target hops\n"
+
+    print("NUM_CHANNELS_IN_TARGET_HOPS", NUM_CHANNELS_IN_TARGET_HOPS)
+    print("y_gains_lines_vanilla", y_gains_lines_vanilla)
+    print("y_gains_lines_jamming", y_gains_lines_jamming)
+    print("y_speed_lines_vanilla", y_gains_lines_vanilla)
+    print("y_speed_lines_jamming", y_gains_lines_jamming)
+    print("x_label", x_label)
+    print("filename gains", "gains_" + targets_source)
+    print("filename speed", "speed_" + targets_source)
 
     plot(
         x_data=NUM_CHANNELS_IN_TARGET_HOPS,
@@ -384,3 +318,265 @@ def experiment_2(num_target_hops, num_runs_per_experiment):
         compare_methods_average(hop_type)
 
     print("\n\n**** Experiment 2 complete ****")
+
+
+def experiment_3(
+    prober: Prober,
+    num_target_hops,
+    num_runs_per_experiment,
+    min_num_channels,
+    max_num_channels,
+):
+    """
+    Measure the information gain and probing speed for direct and remote
+    probing, with and without the assumption of pss.
+
+    Generate or choose target hops with various number of channels.
+    Probe the target hops in direct and remote mode (if prober is
+    provided), using BS and NBS amount choice methods. Measure and plot
+    the final achieved information gain and probing speed.
+
+    Parameters:
+    - prober: the Prober object (None to run only direct
+    probing on synthetic hops)
+    - num_target_hops: how many target hops
+    to choose / generate
+    - num_runs_per_experiments: how many
+    experiments to run (gain and speed are averaged)
+    - min_num_channels:
+    the minimal number of channels in hops to consider
+    - max_num_channels: the maximal number of channels in hops to
+      consider
+    - use_snapshot:
+      if False, run only direct probing on synthetic hops; if
+      True, run direct and remote probing on synthetic and
+      snapshot hops.
+    - jamming: use jamming (after h and g are fully probed without
+      jamming)
+
+    Return:
+    - None (saves the resulting plots)
+    """
+
+    print("\n\n**** Running experiment 3 ****")
+
+    NUM_CHANNELS_IN_TARGET_HOPS = [
+        n for n in range(min_num_channels, max_num_channels + 1)
+    ]
+    jamming = False
+    remote_probing = False
+    # Hops with 5+ channels are very rare in the snapshot.
+
+    from multiprocessing import Manager, Process
+
+    procs = []
+    manager = Manager()
+    gains_results = manager.list([0 for _ in range(2)])
+    speed_results = manager.list([0 for _ in range(4)])
+    for i, pss in enumerate((False, True)):
+        # for j, remote_probing in enumerate((False, True)):
+        for k, bs in enumerate((False, True)):
+            # pos = 2 * j + k
+            pos = k
+            proc = Process(
+                target=run_and_store_result,
+                args=(
+                    gains_results,
+                    speed_results,
+                    pos,
+                    jamming,
+                    remote_probing,
+                    bs,
+                    pss,
+                    NUM_CHANNELS_IN_TARGET_HOPS,
+                    num_runs_per_experiment,
+                    prober,
+                    num_target_hops,
+                ),
+            )
+            procs.append(proc)
+            proc.start()
+    for proc in procs:
+        proc.join()
+    targets_source = "snapshot" if prober is not None else "synthetic"
+    x_label = "\nNumber of channels in target hops\n"
+
+    plot(
+        x_data=NUM_CHANNELS_IN_TARGET_HOPS,
+        y_data_lists=[gains_results],
+        x_label=x_label,
+        y_label="Information gain (share of initial uncertainty)\n",
+        title="",  # "Information gain\n",
+        filename="gains_pss_" + targets_source,
+    )
+    plot(
+        x_data=NUM_CHANNELS_IN_TARGET_HOPS,
+        y_data_lists=[speed_results],
+        x_label=x_label,
+        y_label="Probing speed (bits / message)\n",
+        title="",  # "Probing speed\n",
+        filename="speed_pss_" + targets_source,
+    )
+
+    print("\n\n**** Experiment 3 complete ****")
+
+
+def run_one_instance_of_experiment(
+    jamming,
+    remote_probing,
+    bs,
+    pss,
+    NUM_CHANNELS_IN_TARGET_HOPS,
+    num_runs_per_experiment,
+    prober,
+    num_target_hops,
+):
+    """
+    Run experiment for all numbers of channels with one parameter
+    set. Yields two lines on two graphs: gains and speeds.
+    """
+    gains = [0 for _ in range(len(NUM_CHANNELS_IN_TARGET_HOPS))]
+    speeds = [0 for _ in range(len(NUM_CHANNELS_IN_TARGET_HOPS))]
+    for i, num_channels in enumerate(NUM_CHANNELS_IN_TARGET_HOPS):
+        # print("\n\nN = ", num_channels)
+        gain_list, speed_list = [], []
+        for num_experiment in range(num_runs_per_experiment):
+            # print("  experiment", num_experiment)
+            if prober is not None:
+                # pick target hops from snapshot, probe them in
+                # direct and remote modes
+                target_hops_node_pairs = (
+                    prober.choose_target_hops_with_n_channels(
+                        num_target_hops, num_channels
+                    )
+                )
+                target_hops = [
+                    prober.lnhopgraph[u][v]["hop"]
+                    for (u, v) in target_hops_node_pairs
+                ]
+            else:
+                # TODO: PSS doesn't support PSS yet
+                # generate target hops, probe them in direct mode
+                target_hops = generate_hops(
+                    num_target_hops,
+                    num_channels,
+                    MIN_CAPACITY_SYNTHETIC,
+                    MAX_CAPACITY_SYNTHETIC,
+                )
+            # print("Selected" if prober is not None else
+            # "Generated", len(target_hops), "target hops with",
+            # num_channels, "channels.")
+            if remote_probing:
+                assert prober is not None
+                gain, speed = prober.probe_hops(
+                    target_hops_node_pairs, bs=bs, jamming=jamming, pss=pss
+                )
+            else:
+                gain, speed = probe_hops_direct(
+                    target_hops, bs=bs, jamming=jamming, pss=pss
+                )
+            gain_list.append(gain)
+            speed_list.append(speed)
+        gains[i] = gain_list
+        speeds[i] = speed_list
+    # prepare data for information gains plot
+    remote_or_direct = "Remote" if remote_probing else "Direct"
+    bs_or_nbs = "non-optimized" if bs else "optimized"
+    pss_or_nonpss = "pss" if pss else "non-pss"
+    colors = [
+        "blue",
+        "purple",
+        "red",
+        "orange",
+        "pink",
+        "gray",
+        "olive",
+        "cyan",
+    ]
+    speed_line_color = (
+        (
+            (colors[3] if bs else colors[2])
+            if remote_probing
+            else (colors[1] if bs else colors[0])
+        )
+        if pss
+        else (
+            (colors[7] if bs else colors[6])
+            if remote_probing
+            else (colors[5] if bs else colors[4])
+        )
+    )
+    gains_line_color = (
+        (colors[3] if pss else colors[2])
+        if remote_probing
+        else (colors[1] if pss else colors[0])
+    )
+    lines = [
+        (0, ()),
+        (0, (1, 1)),
+        (0, (3, 1)),
+        (0, (3, 1, 1, 1)),
+        (0, (3, 1, 1, 1, 1, 1)),
+        (0, (5, 3)),
+        (0, (3, 5, 1, 5, 1, 5)),
+        (0, (3, 5, 1, 5)),
+    ]
+    speed_line_style = (
+        (
+            (lines[3] if bs else lines[2])
+            if remote_probing
+            else (lines[1] if bs else lines[0])
+        )
+        if pss
+        else (
+            (lines[7] if bs else lines[6])
+            if remote_probing
+            else (lines[5] if bs else lines[4])
+        )
+    )
+    gains_line_style = (
+        (lines[3] if pss else lines[2])
+        if remote_probing
+        else (lines[1] if pss else lines[0])
+    )
+    gains_line = (
+        gains,
+        remote_or_direct + " probing, " + pss_or_nonpss,
+        gains_line_style,
+        gains_line_color,
+    )
+    speed_line = (
+        speeds,
+        remote_or_direct + ", " + bs_or_nbs + ", " + pss_or_nonpss,
+        speed_line_style,
+        speed_line_color,
+    )
+    return gains_line, speed_line
+
+
+def run_and_store_result(
+    gains_all_lines,
+    speed_all_lines,
+    pos,
+    jamming,
+    remote_probing,
+    bs,
+    pss,
+    NUM_CHANNELS_IN_TARGET_HOPS,
+    num_runs_per_experiment,
+    prober,
+    num_target_hops,
+):
+    gains_line, speed_line = run_one_instance_of_experiment(
+        jamming,
+        remote_probing,
+        bs,
+        pss,
+        NUM_CHANNELS_IN_TARGET_HOPS,
+        num_runs_per_experiment,
+        prober,
+        num_target_hops,
+    )
+    if pos % 2 == 0:
+        gains_all_lines[pos // 2] = gains_line
+    speed_all_lines[pos] = speed_line

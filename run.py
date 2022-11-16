@@ -31,7 +31,7 @@ Luxembourg SPDX-License-Identifier: MIT
 import argparse
 import time
 
-from experiments import experiment_1, experiment_2
+from experiments import experiment_1, experiment_2, experiment_3
 from prober import Prober
 
 SNAPSHOT_FILENAME = "./snapshots/listchannels-2021-12-09.json"
@@ -117,7 +117,7 @@ def main():
     if prober:
         prober.analyze_graph()
 
-    experiment_1(
+    experiment_3(
         prober,
         args.num_target_hops,
         args.num_runs_per_experiment,

@@ -6,19 +6,19 @@
         {
             "label": "run pytest coverage (HTML)",
             "type": "shell",
-            "command": "PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-report=html --cov-branch",
+            "command": "source ${cwd}/env/bin/activate;PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-report=html --cov-branch",
             "problemMatcher": []
         },
         {
             "label": "run pytest coverage (XML)",
             "type": "shell",
-            "command": "PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-report=xml --cov-branch",
+            "command": "source ${cwd}/env/bin/activate;PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-report=xml --cov-branch",
             "problemMatcher": []
         },
         {
             "label": "run pytest coverage (no report)",
             "type": "shell",
-            "command": "PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-branch",
+            "command": "source ${cwd}/env/bin/activate;PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc tests/ --cov-branch",
             "problemMatcher": []
         }
     ]

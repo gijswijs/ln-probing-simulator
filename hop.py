@@ -52,17 +52,18 @@ class Hop:
         e_dir1,
         balances=None,
         granularity=1,
-        pss=False,
     ):
         """
         Initialize a hop.
+        For backwards compatibility we initialize without the assumption
+        of pss. Before a probe we need to run hop.set_h_and_g(pss).
 
         Parameters:
         - capacities: a list of capacities
         - e_dir0: a list of indices of channels enabled in dir0
         - e_dir1: a list of indices of channels enabled in dir1
-        - balances: a list of balances
-          (if None, balances are generated randomly)
+        - balances: a list of balances (if None, balances are generated
+          randomly)
         """
         self.N = len(capacities)
         assert self.N > 0
@@ -74,6 +75,7 @@ class Hop:
         self.c = capacities
         self.e = {dir0: e_dir0, dir1: e_dir1}  # enabled
         self.j = {dir0: [], dir1: []}  # jammed
+
         if balances:
             # if balances are provided, check their consistency w.r.t.
             # capacities
@@ -83,6 +85,13 @@ class Hop:
             # for each channel, pick a balance randomly between zero and
             # capacity
             self.b = [randrange(self.c[i]) for i in range(self.N)]
+
+        self.granularity = granularity
+        self.uncertainty = None  # will be set later
+
+        self.set_h_and_g()
+
+    def set_h_and_g(self, pss=False):
         # h is how much a hop can forward in dir0, if no channels are
         # jammed
         if self.can_forward(dir0) and not pss:
@@ -116,8 +125,7 @@ class Hop:
             )
         else:
             self.g = 0
-        self.granularity = granularity
-        self.uncertainty = None  # will be set later
+
         self.reset_estimates(pss)
 
     def can_forward(self, direction):
@@ -300,6 +308,12 @@ class Hop:
         s += "  jammed in dir1: " + str(self.j[dir1]) + "\n"
         s += "  h if unjammed: " + str(self.h) + "\n"
         s += "  g if unjammed: " + str(self.g) + "\n"
+        s += "  h_l: " + str(self.h_l) + "\n"
+        s += "  h_u: " + str(self.h_u) + "\n"
+        s += "  g_l: " + str(self.g_l) + "\n"
+        s += "  g_u: " + str(self.g_u) + "\n"
+        s += "  b_l: " + str(self.b_l) + "\n"
+        s += "  b_u: " + str(self.b_u) + "\n"
 
         def effective_h(h):
             return h if self.can_forward(dir0) else 0
@@ -812,6 +826,11 @@ class Hop:
                         if len(self.e[dir0]) == 1:
                             # if only one channel is enabled, we can
                             # update this channel's lower bound
+
+                            # FIXME: This assumption is incorrect. If
+                            # only one channel with enough capacity
+                            # (b_u) is enabled, you can update the
+                            # bound.
                             self.b_l[self.e[dir0][0]] = max(
                                 self.b_l[self.e[dir0][0]], self.h_l
                             )
@@ -828,16 +847,16 @@ class Hop:
                             )
                     else:
                         # PSS: Update a channel's lower bound if the
-                        # amount is higher than the combined capacities
-                        # of the other channels in this hop that are
-                        # enabled in dir0
+                        # amount is higher than the combined b_u of the
+                        # other channels in this hop that are enabled in
+                        # dir0
                         for i in self.e[dir0]:
                             self.b_l[i] = max(
                                 self.b_l[i],
                                 max(
                                     amount
                                     - sum(
-                                        self.c[j]
+                                        self.b_u[j]
                                         for j in self.e[dir0]
                                         if j != i
                                     )
@@ -849,10 +868,29 @@ class Hop:
                             # if some channels are enabled in the
                             # opposite direction, update that upper
                             # bound
-                            self.g_u = min(
-                                self.g_u,
-                                sum(self.c) - self.h_l - 1,
-                            )
+                            if all(
+                                [chan in self.e[dir1] for chan in self.e[dir0]]
+                            ):
+                                # All channels enabled in dir0 are also
+                                # enabled in dir1. We can use h_l to
+                                # update g_u.
+                                self.g_u = min(
+                                    self.g_u,
+                                    sum(self.c[i] for i in self.e[dir1])
+                                    - self.h_l
+                                    - 1,
+                                )
+                            else:
+                                # e[dir0] is not a subset of e[dir1] so
+                                # the best we can do is to update g_u
+                                # with the b_l estimates
+                                self.g_u = min(
+                                    self.g_u,
+                                    sum(
+                                        self.c[i] - self.b_l[i] - 1
+                                        for i in self.e[dir1]
+                                    ),
+                                )
                 if jamming:
                     # if we're jamming, we can update the only unjammed
                     # channel's lower bound
@@ -865,8 +903,25 @@ class Hop:
                     # update hop-level upper bound
                     self.h_u = amount - 1
                     for i in self.e[dir0]:
-                        # update all channels' upper bounds
-                        self.b_u[i] = min(self.b_u[i], self.h_u)
+                        if not pss:
+                            # update all channels' upper bounds
+                            self.b_u[i] = min(self.b_u[i], self.h_u)
+                        else:
+                            self.b_u[i] = min(
+                                self.b_u[i],
+                                min(
+                                    (
+                                        amount
+                                        - sum(
+                                            self.b_l[j] + 1
+                                            for j in self.e[dir0]
+                                            if j != i
+                                        )
+                                        - 1,
+                                        self.c[i],
+                                    )
+                                ),
+                            )
                     if len(self.e[dir1]) > 0:
                         if not pss:
                             # if some channels are enabled in the
@@ -880,18 +935,28 @@ class Hop:
                                 ),
                             )
                         else:
+                            # If we calculate [b_l_dir1 plus the
+                            # b_u_dir1 of the other channels] for each
+                            # channel involved in the payment in dir0
+                            # that is also enabled in dir1, than g_l is
+                            # the lowest result of that set.(We don't
+                            # keep track of b_l_dir1, we only keep track
+                            # of b_l and b_u wich are assumed to be in
+                            # dir0). b_l_dir1 = c - b_u - 1 b_u_dir1 = c
+                            # - b_l - 1
                             self.g_l = max(
                                 self.g_l,
                                 min(
-                                    sum(
-                                        self.c[j]
-                                        for j in self.e[dir0]
-                                        if j != i
-                                    )
-                                    + self.c[i]
+                                    self.c[i]
                                     - self.b_u[i]
                                     - 1
+                                    + sum(
+                                        self.c[j] - self.b_l[j] - 1
+                                        for j in self.e[dir0]
+                                        if j != i and j in self.e[dir1]
+                                    )
                                     for i in self.e[dir0]
+                                    if i in self.e[dir1]
                                 ),
                             )
                 if jamming:
@@ -918,25 +983,49 @@ class Hop:
                                 max(self.b_u[i] for i in self.e[dir0]),
                             )
                     else:
+                        # PSS: Update a channel's lower bound in dir1
+                        # (b_l_dir1) if the amount is higher than the
+                        # combined b_u_dir1 of the other channels in
+                        # this hop that are enabled in dir1. Keep in
+                        # mind we don't keep track of b_l_dir1 and
+                        # b_u_dir1, but:
+                        # b_l_dir1 = c - b_u - 1
+                        # b_u_dir1 = c - b_l - 1
                         for i in self.e[dir1]:
                             self.b_u[i] = min(
                                 self.b_u[i],
                                 min(
-                                    self.c[i]
-                                    - amount
-                                    + sum(
-                                        self.c[j]
+                                    sum(
+                                        self.c[j] - self.b_l[j] - 1
                                         for j in self.e[dir1]
                                         if j != i
-                                    ),
+                                    )
+                                    + self.c[i]
+                                    - amount,
                                     self.c[i],
                                 ),
                             )
                         if len(self.e[dir0]) > 0:
-                            self.h_u = min(
-                                self.h_u,
-                                sum(self.c) - self.g_l - 1,
-                            )
+                            if all(
+                                [chan in self.e[dir0] for chan in self.e[dir1]]
+                            ):
+                                # All channels enabled in dir1 are also
+                                # enabled in dir0. We can use g_l to
+                                # update h_u.
+                                self.h_u = min(
+                                    self.h_u,
+                                    sum(self.c[i] for i in self.e[dir0])
+                                    - self.g_l
+                                    - 1,
+                                )
+                            else:
+                                # e[dir1] is not a subset of e[dir0] so
+                                # the best we can do is to update h_u
+                                # with the b_l estimates
+                                self.h_u = min(
+                                    self.h_u,
+                                    sum(self.b_u[i] for i in self.e[dir0]),
+                                )
                 if jamming:
                     self.b_u[available_channels[0]] = min(
                         self.b_u[available_channels[0]],
@@ -947,9 +1036,24 @@ class Hop:
                 if should_update_g and not jamming:
                     self.g_u = amount - 1
                     for i in self.e[dir1]:
-                        self.b_l[i] = max(
-                            self.b_l[i], self.c[i] - self.g_u - 1
-                        )
+                        if not pss:
+                            self.b_l[i] = max(
+                                self.b_l[i], self.c[i] - self.g_u - 1
+                            )
+                        else:
+                            self.b_l[i] = max(
+                                self.b_l[i],
+                                max(
+                                    self.c[i]
+                                    + sum(
+                                        self.c[j] - self.b_u[j]
+                                        for j in self.e[dir1]
+                                        if j != i
+                                    )
+                                    - amount,
+                                    -1,
+                                ),
+                            )
                     if len(self.e[dir0]) > 0:
                         if not pss:
                             self.h_l = max(
@@ -957,16 +1061,22 @@ class Hop:
                                 min(self.b_l[i] for i in self.e[dir0]),
                             )
                         else:
+                            # If we calculate [b_l plus the b_u of the
+                            # other channels] for each channel involved
+                            # in the payment in dir1 that is also
+                            # enabled in dir0, than h_l is the lowest
+                            # result of that set.
                             self.h_l = max(
                                 self.h_l,
                                 min(
-                                    sum(
-                                        self.c[j]
+                                    self.b_l[i]
+                                    + sum(
+                                        self.b_u[j]
                                         for j in self.e[dir1]
-                                        if j != i
+                                        if j != i and j in self.e[dir0]
                                     )
-                                    - self.b_l[i]
-                                    for i in self.e[dir0]
+                                    for i in self.e[dir1]
+                                    if i in self.e[dir0]
                                 ),
                             )
 
