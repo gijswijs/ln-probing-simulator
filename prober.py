@@ -273,7 +273,6 @@ class Prober:
 
         Return:
         - num_probes: how many probes were made
-        - reached_target: True if we ever reached the target
         """
         target_hop: Hop = self.lnhopgraph[target_node_pair[0]][
             target_node_pair[1]

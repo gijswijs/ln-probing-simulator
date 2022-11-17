@@ -944,21 +944,26 @@ class Hop:
                             # of b_l and b_u wich are assumed to be in
                             # dir0). b_l_dir1 = c - b_u - 1 b_u_dir1 = c
                             # - b_l - 1
-                            self.g_l = max(
-                                self.g_l,
-                                min(
-                                    self.c[i]
-                                    - self.b_u[i]
-                                    - 1
-                                    + sum(
-                                        self.c[j] - self.b_l[j] - 1
-                                        for j in self.e[dir0]
-                                        if j != i and j in self.e[dir1]
-                                    )
-                                    for i in self.e[dir0]
-                                    if i in self.e[dir1]
-                                ),
-                            )
+                            if True in (
+                                self.c[i] - self.b_u[i] > 0
+                                for i in self.e[dir0]
+                                if i in self.e[dir1]
+                            ):
+                                self.g_l = max(
+                                    self.g_l,
+                                    min(
+                                        self.c[i]
+                                        - self.b_u[i]
+                                        - 1
+                                        + sum(
+                                            self.c[j] - self.b_l[j] - 1
+                                            for j in self.e[dir0]
+                                            if j != i and j in self.e[dir1]
+                                        )
+                                        for i in self.e[dir0]
+                                        if i in self.e[dir1]
+                                    ),
+                                )
                 if jamming:
                     # if we're jamming, we can update the only unjammed
                     # channel's upper bound
@@ -1066,19 +1071,24 @@ class Hop:
                             # in the payment in dir1 that is also
                             # enabled in dir0, than h_l is the lowest
                             # result of that set.
-                            self.h_l = max(
-                                self.h_l,
-                                min(
-                                    self.b_l[i]
-                                    + sum(
-                                        self.b_u[j]
-                                        for j in self.e[dir1]
-                                        if j != i and j in self.e[dir0]
-                                    )
-                                    for i in self.e[dir1]
-                                    if i in self.e[dir0]
-                                ),
-                            )
+                            if True in (
+                                self.b_l[i] > -1
+                                for i in self.e[dir1]
+                                if i in self.e[dir0]
+                            ):
+                                self.h_l = max(
+                                    self.h_l,
+                                    min(
+                                        self.b_l[i]
+                                        + sum(
+                                            self.b_u[j]
+                                            for j in self.e[dir1]
+                                            if j != i and j in self.e[dir0]
+                                        )
+                                        for i in self.e[dir1]
+                                        if i in self.e[dir0]
+                                    ),
+                                )
 
                 if jamming:
                     self.b_l[available_channels[0]] = max(

@@ -124,7 +124,7 @@ def main():
         args.min_num_channels,
         args.max_num_channels,
     )  # , args.use_snapshot, args.jamming)
-    experiment_2(args.num_target_hops, args.num_runs_per_experiment)
+    # experiment_2(args.num_target_hops, args.num_runs_per_experiment)
 
 
 if __name__ == "__main__":

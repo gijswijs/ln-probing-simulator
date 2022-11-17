@@ -364,20 +364,19 @@ def experiment_3(
         n for n in range(min_num_channels, max_num_channels + 1)
     ]
     jamming = False
-    remote_probing = False
+    bs = True
     # Hops with 5+ channels are very rare in the snapshot.
 
     from multiprocessing import Manager, Process
 
     procs = []
     manager = Manager()
-    gains_results = manager.list([0 for _ in range(2)])
+    gains_results = manager.list([0 for _ in range(4)])
     speed_results = manager.list([0 for _ in range(4)])
     for i, pss in enumerate((False, True)):
-        # for j, remote_probing in enumerate((False, True)):
-        for k, bs in enumerate((False, True)):
-            # pos = 2 * j + k
-            pos = k
+        for j, remote_probing in enumerate((False, True)):
+            # for k, bs in enumerate((False, True)):
+            pos = 4 * i + 2 * j
             proc = Process(
                 target=run_and_store_result,
                 args=(
@@ -455,7 +454,7 @@ def run_one_instance_of_experiment(
                     for (u, v) in target_hops_node_pairs
                 ]
             else:
-                # TODO: PSS doesn't support PSS yet
+                # TODO: PSS doesn't support synthetic hops yet
                 # generate target hops, probe them in direct mode
                 target_hops = generate_hops(
                     num_target_hops,
@@ -579,4 +578,4 @@ def run_and_store_result(
     )
     if pos % 2 == 0:
         gains_all_lines[pos // 2] = gains_line
-    speed_all_lines[pos] = speed_line
+    speed_all_lines[pos // 2] = speed_line

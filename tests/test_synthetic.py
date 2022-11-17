@@ -271,6 +271,23 @@ def test_generate_hop():
                 "g_u": 64197,
             },  # success
         ),
+        (
+            [2017461, 2017461, 2017461],  # C
+            [701210, 717798, 1172118],  # B
+            [0, 1, 2],  # e_dir0
+            [0, 1, 2],  # e_dir1
+            True,  # pss
+            True,  # bs
+            {
+                "num_probes": 42,
+                "b_l": [-1, -1, -1],
+                "b_u": [2017461, 2017461, 2017461],
+                "h_l": 2591125,
+                "h_u": 2591126,
+                "g_l": 3461256,
+                "g_u": 3461257,
+            },  # success
+        ),
     ],
 )
 def test_probe_hop_without_jamming(C, B, e_dir0, e_dir1, pss, bs, success):

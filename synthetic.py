@@ -111,7 +111,7 @@ def generate_hops(
     ]
 
 
-def probe_single_hop(hop, bs, jamming):
+def probe_single_hop(hop: Hop, bs, jamming, pss=False):
     """
     Do a series of (direct) probes until the hop is fully probed.
 
@@ -127,7 +127,7 @@ def probe_single_hop(hop, bs, jamming):
     - num_jams: the total number of jams done
     """
     initial_uncertainty = hop.uncertainty
-    num_probes, num_jams = probe_hop_without_jamming(hop, bs), 0
+    num_probes, num_jams = probe_hop_without_jamming(hop, bs, pss=pss), 0
     if jamming:
         for i in range(hop.N):
             # print("\nJamming-enhanced probing channel", i)
@@ -217,7 +217,9 @@ def probe_hops_direct(hops, bs, jamming, pss=False):
     initial_uncertainty_total = sum([hop.uncertainty for hop in hops])
     gains, probes_list = [], []
     for hop in hops:
-        gain, probes, jams = probe_single_hop(hop, bs=bs, jamming=jamming)
+        gain, probes, jams = probe_single_hop(
+            hop, bs=bs, jamming=jamming, pss=pss
+        )
         gains.append(gain)
         # count jams as probes (they are payments too!)
         probes_list.append(probes + jams)
