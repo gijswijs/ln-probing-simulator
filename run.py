@@ -35,6 +35,7 @@ from experiments import experiment_1, experiment_2, experiment_3
 from prober import Prober
 
 SNAPSHOT_FILENAME = "./snapshots/listchannels-2021-12-09.json"
+DATESTRING = "2021-12-09"
 ENTRY_CHANNEL_CAPACITY = 10 * 100 * 1000 * 1000
 # top 10 nodes by degree as per https://1ml.com/node?order=channelcount
 ENTRY_NODES = [
@@ -95,6 +96,18 @@ def main():
             " probing.)"
         ),
     )
+    parser.add_argument(
+        "--export",
+        dest="export",
+        action="store_true",
+        help="Export prober to GML files",
+    )
+    parser.add_argument(
+        "--use_gml",
+        dest="use_gml",
+        action="store_true",
+        help="Use GML files. Can't ge used in conjunction with --use_snapshot",
+    )
     # parser.add_argument("--jamming", dest="jamming",
     # action="store_true", help="Use jamming after h and g are known?")
     args = parser.parse_args()
@@ -106,24 +119,43 @@ def main():
         )
         exit()
 
-    prober = (
-        Prober(
+    if args.use_gml and (args.use_snapshot or args.export):
+        print(
+            "use_gml can't be used in conjunction with use_snapshot or export"
+        )
+        exit()
+
+    prober = None
+    if args.use_snapshot:
+        prober = Prober(
             SNAPSHOT_FILENAME, "PROBER", ENTRY_NODES, ENTRY_CHANNEL_CAPACITY
         )
-        if args.use_snapshot
-        else None
-    )
+    else:
+        filename = [
+            "./graph_exports/hopgraph-" + DATESTRING + ".gml",
+            "./graph_exports/psshopgraph-" + DATESTRING + ".gml",
+        ]
+        prober = Prober(filename, "PROBER", None, None, gml_file=True)
 
     if prober:
         prober.analyze_graph()
-
-    experiment_3(
-        prober,
-        args.num_target_hops,
-        args.num_runs_per_experiment,
-        args.min_num_channels,
-        args.max_num_channels,
-    )  # , args.use_snapshot, args.jamming)
+    if args.export:
+        prober.export_graph(
+            prober.lnhopgraph,
+            "./graph_exports/hopgraph-" + DATESTRING + ".gml",
+        )
+        prober.export_graph(
+            prober.psshopgraph,
+            "./graph_exports/psshopgraph-" + DATESTRING + ".gml",
+        )
+    else:
+        experiment_3(
+            prober,
+            args.num_target_hops,
+            args.num_runs_per_experiment,
+            args.min_num_channels,
+            args.max_num_channels,
+        )
     # experiment_2(args.num_target_hops, args.num_runs_per_experiment)
 
 

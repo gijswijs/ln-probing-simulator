@@ -364,7 +364,6 @@ def experiment_3(
         n for n in range(min_num_channels, max_num_channels + 1)
     ]
     jamming = False
-    bs = True
     # Hops with 5+ channels are very rare in the snapshot.
 
     from multiprocessing import Manager, Process
@@ -372,29 +371,29 @@ def experiment_3(
     procs = []
     manager = Manager()
     gains_results = manager.list([0 for _ in range(4)])
-    speed_results = manager.list([0 for _ in range(4)])
+    speed_results = manager.list([0 for _ in range(8)])
     for i, pss in enumerate((False, True)):
         for j, remote_probing in enumerate((False, True)):
-            # for k, bs in enumerate((False, True)):
-            pos = 4 * i + 2 * j
-            proc = Process(
-                target=run_and_store_result,
-                args=(
-                    gains_results,
-                    speed_results,
-                    pos,
-                    jamming,
-                    remote_probing,
-                    bs,
-                    pss,
-                    NUM_CHANNELS_IN_TARGET_HOPS,
-                    num_runs_per_experiment,
-                    prober,
-                    num_target_hops,
-                ),
-            )
-            procs.append(proc)
-            proc.start()
+            for k, bs in enumerate((False, True)):
+                pos = 4 * i + 2 * j + k
+                proc = Process(
+                    target=run_and_store_result,
+                    args=(
+                        gains_results,
+                        speed_results,
+                        pos,
+                        jamming,
+                        remote_probing,
+                        bs,
+                        pss,
+                        NUM_CHANNELS_IN_TARGET_HOPS,
+                        num_runs_per_experiment,
+                        prober,
+                        num_target_hops,
+                    ),
+                )
+                procs.append(proc)
+                proc.start()
     for proc in procs:
         proc.join()
     targets_source = "snapshot" if prober is not None else "synthetic"
@@ -578,4 +577,4 @@ def run_and_store_result(
     )
     if pos % 2 == 0:
         gains_all_lines[pos // 2] = gains_line
-    speed_all_lines[pos // 2] = speed_line
+    speed_all_lines[pos] = speed_line

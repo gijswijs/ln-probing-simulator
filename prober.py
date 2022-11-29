@@ -34,11 +34,16 @@ Luxembourg SPDX-License-Identifier: MIT
 """
 
 
+import json
 from random import random, shuffle
 
 import networkx as nx
 
-from graph import create_multigraph_from_snapshot, ln_multigraph_to_hop_graph
+from graph import (
+    create_multigraph_from_snapshot,
+    ln_hopgraph_to_pss_hopgraph,
+    ln_multigraph_to_hop_graph,
+)
 from hop import Hop, dir0, dir1
 
 
@@ -50,6 +55,7 @@ class Prober:
         entry_nodes,
         entry_channel_capacity,
         granularity=1,
+        gml_file=False,
     ):
         """
         Initialize a Prober.
@@ -64,16 +70,29 @@ class Prober:
         - granularity: the prober wants to know balance up to this
           granularity (in satoshis)
         """
+        self.old_amount = None
         self.our_node_id = node_id
         # parse snapshot date from filename to include in plot title
-        self.snapshot_date = snapshot_filename[
-            -len("yyyy-mm-dd.json") : -len(".json")
-        ]
-        ln_multigraph = create_multigraph_from_snapshot(snapshot_filename)
-        self.lnhopgraph = ln_multigraph_to_hop_graph(ln_multigraph)
-        for entry_node in entry_nodes:
-            self.open_channel(
-                self.our_node_id, entry_node, entry_channel_capacity
+        if not gml_file:
+            self.snapshot_date = snapshot_filename[
+                -len("yyyy-mm-dd.json") : -len(".json")
+            ]
+            ln_multigraph = create_multigraph_from_snapshot(snapshot_filename)
+            self.lnhopgraph = ln_multigraph_to_hop_graph(ln_multigraph)
+            for entry_node in entry_nodes:
+                self.open_channel(
+                    self.our_node_id, entry_node, entry_channel_capacity
+                )
+            self.psshopgraph = ln_hopgraph_to_pss_hopgraph(self.lnhopgraph)
+        else:
+            self.snapshot_date = snapshot_filename[0][
+                -len("yyyy-mm-dd.gml") : -len(".gml")
+            ]
+            self.lnhopgraph = self.import_graph(
+                snapshot_filename[0], pss=False
+            )
+            self.psshopgraph = self.import_graph(
+                snapshot_filename[1], pss=True
             )
         self.local_routing_graph = self.lnhopgraph.to_directed()
 
@@ -84,6 +103,41 @@ class Prober:
                 for first, second in self.lnhopgraph.edges()
             ]
         )
+
+    def export_graph(self, G, filename):
+        def stringify(hop):
+            if type(hop) is Hop:
+                export_hop = {
+                    "c": hop.c,
+                    "e": hop.e,
+                    "a": hop.a,
+                    "b": hop.b,
+                }
+                return json.dumps(export_hop)
+            else:
+                return str(hop)
+
+        nx.write_gml(G, filename, stringizer=stringify)
+
+    def import_graph(self, filename, pss=False):
+        def destringify_factory(pss):
+            def destringify(hop):
+                if hop.startswith('{"c":'):
+                    hop_dict = json.loads(hop)
+                    return Hop(
+                        hop_dict["c"],
+                        hop_dict["e"][str(dir0).lower()],
+                        hop_dict["e"][str(dir1).lower()],
+                        hop_dict["a"],
+                        hop_dict["b"],
+                        pss=pss,
+                    )
+                else:
+                    return hop
+
+            return destringify
+
+        return nx.read_gml(filename, destringizer=destringify_factory(pss))
 
     def open_channel(self, first, second, capacity, push_satoshis=0):
         """
@@ -114,14 +168,14 @@ class Prober:
             else:
                 e_dir1 = hop.e[dir1].append(len(capacities) + 1)
             balances = hop.balances.append(balance_at_first)
-            updated_hop = Hop(capacities, e_dir0, e_dir1, balances)
+            updated_hop = Hop(capacities, e_dir0, e_dir1, [], balances)
             # print("Updated hop:", updated_hop)
             self.lnhopgraph[first][second]["hop"] = updated_hop
         else:
             self.lnhopgraph.add_edge(first, second)
             e_dir0, e_dir1 = ([0], []) if direction == dir0 else ([], [0])
             self.lnhopgraph[first][second]["hop"] = Hop(
-                [capacity], e_dir0, e_dir1, [balance_at_first]
+                [capacity], e_dir0, e_dir1, [], [balance_at_first]
             )
 
     def filtered_routing_graph_for_amount(self, amount, exclude_nodes):
@@ -239,8 +293,12 @@ class Prober:
         node_pairs = [p for p in zip(path, path[1:])]
         reached_target = False
         for n1, n2 in node_pairs:
-            reached_target = n2 == path[-1]
-            hop: Hop = self.lnhopgraph[n1][n2]["hop"]
+            reached_target = n2 == path[-1] and n1 == path[-2]
+            hop: Hop = (
+                self.psshopgraph[n1][n2]["hop"]
+                if pss
+                else self.lnhopgraph[n1][n2]["hop"]
+            )
             direction = dir0 if n1 < n2 else dir1
             probe_passed = hop.probe(direction, amount, pss)
             if not probe_passed:
@@ -274,9 +332,13 @@ class Prober:
         Return:
         - num_probes: how many probes were made
         """
-        target_hop: Hop = self.lnhopgraph[target_node_pair[0]][
-            target_node_pair[1]
-        ]["hop"]
+        target_hop: Hop = (
+            self.psshopgraph[target_node_pair[0]][target_node_pair[1]]["hop"]
+            if pss
+            else self.lnhopgraph[target_node_pair[0]][target_node_pair[1]][
+                "hop"
+            ]
+        )
         known_failed_amount = {dir0: None, dir1: None}
         # print("\n----------------------\nProbing hop",
         # target_node_pair) print(target_hop)
@@ -297,6 +359,7 @@ class Prober:
                 else target_hop.worth_probing_h_or_g(direction)
             ):
                 amount = target_hop.next_a(direction, bs, jamming, pss=pss)
+                self.old_amount = amount
                 # print("Suggest amount", amount)
                 guaranteed_fail = (
                     amount >= known_failed_amount[direction]
@@ -423,6 +486,8 @@ class Prober:
                                 if random() < best_dir_chance
                                 else alt_dir
                             )
+                # str_direction = "dir0" if direction == dir0 else "dir1"
+                # print("Probe in direction", str_direction)
                 made_probe, reached_target = probe_target_hop_in_direction(
                     direction, jamming, pss
                 )
@@ -496,12 +561,20 @@ class Prober:
         self.reset_all_estimates(pss)
 
         def uncertainty_for_target_hops():
-            return sum(
-                [
-                    self.lnhopgraph[n1][n2]["hop"].uncertainty
-                    for n1, n2 in target_hops
-                ]
-            )
+            if pss:
+                return sum(
+                    [
+                        self.psshopgraph[n1][n2]["hop"].uncertainty_pss
+                        for n1, n2 in target_hops
+                    ]
+                )
+            else:
+                return sum(
+                    [
+                        self.lnhopgraph[n1][n2]["hop"].uncertainty
+                        for n1, n2 in target_hops
+                    ]
+                )
 
         initial_uncertainty_total = uncertainty_for_target_hops()
         num_probes = sum(
@@ -523,6 +596,8 @@ class Prober:
     def reset_all_estimates(self, pss=False):
         for n1, n2 in self.lnhopgraph.edges():
             self.lnhopgraph[n1][n2]["hop"].set_h_and_g(pss)
+        for n1, n2 in self.psshopgraph.edges():
+            self.psshopgraph[n1][n2]["hop"].set_h_and_g(pss)
 
     def choose_target_hops_with_n_channels(
         self, max_num_target_hops, num_channels
@@ -565,8 +640,20 @@ class Prober:
             for (n1, n2) in self.lnhopgraph.edges()
         ]
 
+        all_pss_hops = [
+            self.psshopgraph.get_edge_data(n1, n2)["hop"]
+            for (n1, n2) in self.lnhopgraph.edges()
+        ]
+
         def n_channel_hops(all_hops, min_N, max_N):
             return [hop for hop in all_hops if min_N <= hop.N <= max_N]
+
+        def n_channel_hops_with_alts(all_pss_hops, min_N, max_N):
+            return [
+                hop
+                for hop in all_pss_hops
+                if min_N <= hop.N - len(hop.a) <= max_N and len(hop.a) > 0
+            ]
 
         def share_n_channel_hops(all_hops, min_N, max_N):
             return round(
@@ -601,36 +688,43 @@ class Prober:
             "Share of 1-channel hops:",
             share_n_channel_hops(all_hops, 1, 1),
             len(n_channel_hops(all_hops, 1, 1)),
+            len(n_channel_hops_with_alts(all_pss_hops, 1, 1)),
         )
         print(
             "Share of 2-channel hops:",
             share_n_channel_hops(all_hops, 2, 2),
             len(n_channel_hops(all_hops, 2, 2)),
+            len(n_channel_hops_with_alts(all_pss_hops, 2, 2)),
         )
         print(
             "Share of 3-channel hops:",
             share_n_channel_hops(all_hops, 3, 3),
             len(n_channel_hops(all_hops, 3, 3)),
+            len(n_channel_hops_with_alts(all_pss_hops, 3, 3)),
         )
         print(
             "Share of 4-channel hops:",
             share_n_channel_hops(all_hops, 4, 4),
             len(n_channel_hops(all_hops, 4, 4)),
+            len(n_channel_hops_with_alts(all_pss_hops, 4, 4)),
         )
         print(
             "Share of 5-channel hops:",
             share_n_channel_hops(all_hops, 5, 5),
             len(n_channel_hops(all_hops, 5, 5)),
+            len(n_channel_hops_with_alts(all_pss_hops, 5, 5)),
         )
         print(
             "Share of <= 5-channel hops:",
             share_n_channel_hops(all_hops, 1, 5),
             len(n_channel_hops(all_hops, 1, 5)),
+            len(n_channel_hops_with_alts(all_pss_hops, 1, 5)),
         )
         print(
             "Share of <= 10-channel hops:",
             share_n_channel_hops(all_hops, 1, 10),
             len(n_channel_hops(all_hops, 1, 10)),
+            len(n_channel_hops_with_alts(all_pss_hops, 1, 10)),
         )
         print(
             "Share of capacity in 1-channel hops:",

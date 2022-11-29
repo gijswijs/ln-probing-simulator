@@ -5,7 +5,7 @@ from hop import Hop, dir0, dir1
 
 @pytest.fixture
 def hop_instance():
-    hop = Hop([150000], [0], [0], [70000])
+    hop = Hop([150000], [0], [0], [], [70000])
     return hop
 
 
@@ -47,7 +47,7 @@ def test_probe_hop_with_single_channel(hop_instance: Hop):
 
 def test_probe_hop_with_multiple_channels_no_pss():
     pss = False
-    hop = Hop([100000, 60000], [0, 1], [0, 1], [70000, 50000])
+    hop = Hop([100000, 60000], [0, 1], [0, 1], [], [70000, 50000])
     hop.set_h_and_g(pss)
     hop.probe(dir0, 65000, pss)
     # The below assert is valid with the original code, but I disagree
@@ -72,6 +72,7 @@ def test_probe_hop_with_multiple_channels_pss():
         [40000, 50000, 80000, 100000],
         [0, 1, 2, 3],
         [0, 1, 2, 3],
+        [],
         [31000, 32000, 35000, 90000],
     )
     hop.set_h_and_g(pss)
@@ -97,7 +98,7 @@ def test_probe_hop_with_multiple_channels_pss():
     ],
 )
 def test_next_a(C, B, pss, direction, success):
-    hop = Hop(C, [0, 1], [0, 1], B)
+    hop = Hop(C, [0, 1], [0, 1], [], B)
     hop.set_h_and_g(pss)
     initial_S_F = hop.S_F
     amount = hop.next_a(direction, False, False, pss, success)
@@ -119,7 +120,7 @@ def test_next_a(C, B, pss, direction, success):
 def test_next_dir(C, B, pss, bs, jamming):
     # TODO: I doubt if this has any use in a PSS setting. I guess it
     # works, but the calculations seem meaningless to me
-    hop = Hop(C, [0, 1], [0, 1], B)
+    hop = Hop(C, [0, 1], [0, 1], [], B)
     hop.set_h_and_g(pss)
     direction = hop.next_dir(bs, jamming, pss=pss)
     print("dir0" if direction == dir0 else "dir1")

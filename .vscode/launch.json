@@ -18,6 +18,37 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Export snapshot to GML",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/run.py",
+            "args": [
+                "--num_target_hops=5",
+                "--num_runs_per_experiment=2",
+                "--min_num_channels=1",
+                "--max_num_channels=3",
+                "--use_snapshot",
+                "--export"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Run with GML",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/run.py",
+            "args": [
+                "--num_target_hops=5",
+                "--num_runs_per_experiment=2",
+                "--min_num_channels=1",
+                "--max_num_channels=3",
+                "--use_gml",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }

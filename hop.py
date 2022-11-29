@@ -50,8 +50,10 @@ class Hop:
         capacities,
         e_dir0,
         e_dir1,
+        alts=[],
         balances=None,
         granularity=1,
+        pss=False,
     ):
         """
         Initialize a hop.
@@ -74,7 +76,9 @@ class Hop:
             assert max(e_dir1) <= self.N
         self.c = capacities
         self.e = {dir0: e_dir0, dir1: e_dir1}  # enabled
+        self.a = alts  # channels in this hop that represent alternative routes
         self.j = {dir0: [], dir1: []}  # jammed
+        self.pss = pss
 
         if balances:
             # if balances are provided, check their consistency w.r.t.
@@ -88,8 +92,9 @@ class Hop:
 
         self.granularity = granularity
         self.uncertainty = None  # will be set later
+        self.uncertainty_pss = None  # will be set later
 
-        self.set_h_and_g()
+        self.set_h_and_g(pss=pss)
 
     def set_h_and_g(self, pss=False):
         # h is how much a hop can forward in dir0, if no channels are
@@ -210,12 +215,20 @@ class Hop:
             self.R_g_l = ProbingRectangle(self, direction=dir1, bound=self.g_l)
             self.R_g_u = ProbingRectangle(self, direction=dir1, bound=self.g_u)
         self.R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
+        self.R_b_pss = Rectangle(
+            [b_l_i + 1 for i, b_l_i in enumerate(self.b_l) if i not in self.a],
+            [b_l_u for i, b_l_u in enumerate(self.b_u) if i not in self.a],
+        )
         if not pss:
             self.S_F = self.S_F_generic(
                 self.R_h_l, self.R_h_u, self.R_g_l, self.R_g_u, self.R_b
             )
         else:
             self.S_F = self.R_b.S()
+            self.S_F_pss = self.R_b_pss.S()
+            self.uncertainty_pss = max(
+                0, log2(self.S_F_pss) - log2(self.granularity)
+            )
         self.uncertainty = max(0, log2(self.S_F) - log2(self.granularity))
         assert all(
             -1 <= self.b_l[i] <= self.b_u[i] <= self.c[i]
@@ -573,11 +586,19 @@ class Hop:
     def worth_probing_h(self):
         # is there any uncertainty left about h that we resolve it
         # without jamming?
+        # print(
+        #     "Worth probing h (dir0)",
+        #     str(self.can_forward(dir0) and self.h_u - self.h_l > 1),
+        # )
         return self.can_forward(dir0) and self.h_u - self.h_l > 1
 
     def worth_probing_g(self):
         # is there any uncertainty left about g that we resolve it
         # without jamming?
+        # print(
+        #     "Worth probing g (dir1)",
+        #     str(self.can_forward(dir1) and self.g_u - self.g_l > 1),
+        # )
         return self.can_forward(dir1) and self.g_u - self.g_l > 1
 
     def worth_probing_h_or_g(self, direction):
@@ -614,6 +635,28 @@ class Hop:
         - a: the NBS amount, or None if the hop cannot forward
           in this direction
         """
+
+        def new_a(direction, start_a, a_l, a_u, pss, success=False):
+            while True:
+                S_F_a = self.S_F_a_expected(direction, start_a, pss, success)
+                # print(a_l, a, a_u)
+                if success:
+                    if S_F_a < S_F_half:
+                        a_u = start_a
+                    else:
+                        a_l = start_a
+                    new_a = (a_l + a_u + 1) // 2
+                else:
+                    if S_F_a < S_F_half:
+                        a_l = start_a
+                    else:
+                        a_u = start_a
+                    new_a = (a_l + a_u + 1) // 2
+                if new_a == start_a:
+                    break
+                start_a = new_a
+            return new_a
+
         S_F_half = max(1, self.S_F // 2)
         if not jamming:
             # only makes sense to send probes between current estimates
@@ -642,26 +685,24 @@ class Hop:
         if not bs and not jamming:
             # we only do binary search over S(F) in pre-jamming probing
             # phase
-            while True:
-                S_F_a = self.S_F_a_expected(direction, a, pss, success)
-                # print(a_l, a, a_u)
-                if success:
-                    if S_F_a < S_F_half:
-                        a_u = a
-                    else:
-                        a_l = a
-                    new_a = (a_l + a_u + 1) // 2
-                else:
-                    if S_F_a < S_F_half:
-                        a_l = a
-                    else:
-                        a_u = a
-                    new_a = (a_l + a_u + 1) // 2
-                if new_a == a:
-                    break
-                a = new_a
-                # print("if a = ", a, ", then area under cut = ", S_F_a,
-                # ", need", S_F_half)
+
+            a = new_a(direction, a, a_l, a_u, pss, success)
+            if pss and (
+                (a_u - a <= 1 and success) or (a - a_l <= 1 and not success)
+            ):
+                # PSS amount can't give a lot of information, probably
+                # because we assumed a fail, and the previous amount
+                # succeeded or the other way around. Let's try assuming
+                # a the opposite.
+                a = new_a(direction, a, a_l, a_u, pss, not success)
+                if (a_u - a <= 1 and not success) or (
+                    a - a_l <= 1 and success
+                ):
+                    # PSS amount can't give a lot of information, either
+                    # way. Let's default back to binary search.
+                    a = (a_l + a_u + 1) // 2
+            # print("if a = ", a, ", then area under cut = ", S_F_a,
+            # ", need", S_F_half)
         assert a > 0
         return a
 

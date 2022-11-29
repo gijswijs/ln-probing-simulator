@@ -186,3 +186,109 @@ def ln_multigraph_to_hop_graph(ln_multigraph):
                 e_dir1.append(i)
         hop_graph[n1][n2]["hop"] = Hop(capacities, e_dir0, e_dir1)
     return hop_graph
+
+
+def ln_hopgraph_to_pss_hopgraph(ln_hopgraph, max_length=2):
+    """
+    Generate a pss_hopgraph from an ln_hopgraph. A pss_hopgraph is a
+    hopgraph that includes all routes equal or shorter than max_length
+    from n1 to n2.
+
+    Parameters:
+    - ln_hopgraph: LN model ln_hopgraph
+    - max_length: maximum length of route from n1 to n2. Defaults to 2,
+      which means only one intermediary hop between n1 and n2.
+
+    Return:
+    - pss_hopgraph: a non-directed graph where each edge models a pss
+      hop
+    """
+    pss_hopgraph = ln_hopgraph.copy()
+    pss_hopdigraph = pss_hopgraph.to_directed()
+
+    for _, _, d in pss_hopgraph.edges(data=True):
+        hop = d["hop"]
+        hop.set_h_and_g(pss=True)
+
+    def filter_edge(n1, n2):
+        """
+        Return True if the edge is kept, False if it is excluded.
+
+        Parameters:
+        - n1, n2: node IDs of the vertices
+        """
+        hop = ln_hopgraph[n1][n2]["hop"]
+        direction = dir0 if n1 < n2 else dir1
+        if direction == dir0:
+            return hop.can_forward(dir0)
+        else:
+            return hop.can_forward(dir1)
+
+    def find_alt_paths(n1, n2):
+        paths = nx.shortest_simple_paths(routing_graph, source=n1, target=n2)
+        next_path = []
+        while True:
+            try:
+                next_path = next(paths)
+                if len(next_path) <= max_length + 1:
+                    if len(next_path) > 2:
+                        node_pairs = [p for p in zip(next_path, next_path[1:])]
+                        capacity = None
+                        for u, v in node_pairs:
+                            direction = dir0 if u < v else dir1
+                            if direction == dir0:
+                                new_capacity = pss_hopgraph[u][v]["hop"].h_u
+                            else:
+                                new_capacity = pss_hopgraph[u][v]["hop"].g_u
+                            if capacity is None or new_capacity < capacity:
+                                capacity = new_capacity
+                        capacities.append(capacity)
+                        direction = dir0 if n1 < n2 else dir1
+                        if direction == dir0:
+                            e_dir0.append(len(capacities) - 1)
+                        else:
+                            e_dir1.append(len(capacities) - 1)
+                        alt.append(len(capacities) - 1)
+                else:
+                    break
+            except (nx.exception.NetworkXNoPath, StopIteration):
+                break
+
+    routing_graph = nx.subgraph_view(
+        pss_hopdigraph,
+        filter_edge=filter_edge,
+    )
+
+    for n1, n2, d in pss_hopgraph.edges(data=True):
+        hop = d["hop"]
+        hop.set_h_and_g(pss=True)
+        capacities = hop.c.copy()
+        e_dir0 = hop.e[dir0].copy()
+        e_dir1 = hop.e[dir1].copy()
+        alt = []
+        find_alt_paths(n1, n2)
+        find_alt_paths(n2, n1)
+        pss_hopgraph[n1][n2]["hop_pss"] = Hop(
+            capacities, e_dir0, e_dir1, alt, pss=True
+        )
+
+    hops_with_alt_routes = 0
+    for n1, n2, d in pss_hopgraph.edges(data=True):
+        if d["hop_pss"].N > d["hop"].N:
+            hops_with_alt_routes += 1
+        d["hop"] = d.pop("hop_pss")
+
+    for n1, n2, d in ln_hopgraph.edges(data=True):
+        d["hop"].set_h_and_g(pss=False)
+
+    print(
+        "PSS hopgraph created with",
+        pss_hopgraph.number_of_nodes(),
+        "nodes,",
+        pss_hopgraph.number_of_edges(),
+        "hops.",
+    )
+
+    print(hops_with_alt_routes, "hops with at least one alternative route")
+
+    return pss_hopgraph

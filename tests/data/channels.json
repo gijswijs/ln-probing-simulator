@@ -1,0 +1,249 @@
+{
+  "channels": [
+    {
+      "source": "Alice",
+      "destination": "Bob",
+      "short_channel_id": "0",
+      "satoshis": 20000,
+      "active": true
+    },
+    {
+      "source": "Bob",
+      "destination": "Alice",
+      "short_channel_id": "0",
+      "satoshis": 20000,
+      "active": true
+    },
+    {
+      "source": "Alice",
+      "destination": "Bob",
+      "short_channel_id": "1",
+      "satoshis": 60000,
+      "active": true
+    },
+    {
+      "source": "Bob",
+      "destination": "Alice",
+      "short_channel_id": "1",
+      "satoshis": 60000,
+      "active": true
+    },
+    {
+      "source": "Alice",
+      "destination": "Bob",
+      "short_channel_id": "2",
+      "satoshis": 100000,
+      "active": true
+    },
+    {
+      "source": "Alice",
+      "destination": "Grace",
+      "short_channel_id": "3",
+      "satoshis": 1000099,
+      "active": true
+    },
+    {
+      "source": "Grace",
+      "destination": "Alice",
+      "short_channel_id": "3",
+      "satoshis": 1000099,
+      "active": true
+    },
+    {
+      "source": "Bob",
+      "destination": "Grace",
+      "short_channel_id": "4",
+      "satoshis": 344885,
+      "active": true
+    },
+    {
+      "source": "Grace",
+      "destination": "Bob",
+      "short_channel_id": "4",
+      "satoshis": 344885,
+      "active": true
+    },
+    {
+      "source": "Alice",
+      "destination": "Harold",
+      "short_channel_id": "5",
+      "satoshis": 98143,
+      "active": true
+    },
+    {
+      "source": "Harold",
+      "destination": "Alice",
+      "short_channel_id": "5",
+      "satoshis": 98143,
+      "active": true
+    },
+    {
+      "source": "Bob",
+      "destination": "Carol",
+      "short_channel_id": "6",
+      "satoshis": 1000000,
+      "active": true
+    },
+    {
+      "source": "Carol",
+      "destination": "Bob",
+      "short_channel_id": "7",
+      "satoshis": 750000,
+      "active": true
+    },
+    {
+      "source": "Carol",
+      "destination": "Dave",
+      "short_channel_id": "8",
+      "satoshis": 500000,
+      "active": true
+    },
+    {
+      "source": "Dave",
+      "destination": "Carol",
+      "short_channel_id": "8",
+      "satoshis": 500000,
+      "active": true
+    },
+    {
+      "source": "Carol",
+      "destination": "Dave",
+      "short_channel_id": "9",
+      "satoshis": 1500000,
+      "active": true
+    },
+    {
+      "source": "Dave",
+      "destination": "Carol",
+      "short_channel_id": "9",
+      "satoshis": 1500000,
+      "active": true
+    },
+    {
+      "source": "Dave",
+      "destination": "Erin",
+      "short_channel_id": "10",
+      "satoshis": 1468000,
+      "active": true
+    },
+    {
+      "source": "Erin",
+      "destination": "Dave",
+      "short_channel_id": "10",
+      "satoshis": 1468000,
+      "active": true
+    },
+    {
+      "source": "Dave",
+      "destination": "Erin",
+      "short_channel_id": "11",
+      "satoshis": 1100000,
+      "active": true
+    },
+    {
+      "source": "Erin",
+      "destination": "Dave",
+      "short_channel_id": "11",
+      "satoshis": 1100000,
+      "active": true
+    },
+    {
+      "source": "Dave",
+      "destination": "Erin",
+      "short_channel_id": "12",
+      "satoshis": 3000000,
+      "active": true
+    },
+    {
+      "source": "Erin",
+      "destination": "Dave",
+      "short_channel_id": "12",
+      "satoshis": 3000000,
+      "active": true
+    },
+    {
+      "source": "Dave",
+      "destination": "Frank",
+      "short_channel_id": "13",
+      "satoshis": 16500000,
+      "active": true
+    },
+    {
+      "source": "Frank",
+      "destination": "Dave",
+      "short_channel_id": "13",
+      "satoshis": 16500000,
+      "active": true
+    },
+    {
+      "source": "Erin",
+      "destination": "Frank",
+      "short_channel_id": "14",
+      "satoshis": 1000000,
+      "active": true
+    },
+    {
+      "source": "Frank",
+      "destination": "Erin",
+      "short_channel_id": "14",
+      "satoshis": 1000000,
+      "active": true
+    },
+    {
+      "source": "Frank",
+      "destination": "Ivan",
+      "short_channel_id": "15",
+      "satoshis": 2236510,
+      "active": true
+    },
+    {
+      "source": "Ivan",
+      "destination": "Frank",
+      "short_channel_id": "15",
+      "satoshis": 2236510,
+      "active": true
+    },
+    {
+      "source": "Frank",
+      "destination": "Judy",
+      "short_channel_id": "16",
+      "satoshis": 9999999,
+      "active": true
+    },
+    {
+      "source": "Judy",
+      "destination": "Frank",
+      "short_channel_id": "16",
+      "satoshis": 9999999,
+      "active": true
+    },
+    {
+      "source": "Erin",
+      "destination": "Ivan",
+      "short_channel_id": "17",
+      "satoshis": 500000,
+      "active": true
+    },
+    {
+      "source": "Ivan",
+      "destination": "Erin",
+      "short_channel_id": "17",
+      "satoshis": 500000,
+      "active": true
+    },
+    {
+      "source": "Carol",
+      "destination": "Judy",
+      "short_channel_id": "18",
+      "satoshis": 2100000,
+      "active": true
+    },
+    {
+      "source": "Judy",
+      "destination": "Carol",
+      "short_channel_id": "18",
+      "satoshis": 2100000,
+      "active": true
+    }
+  ]
+}

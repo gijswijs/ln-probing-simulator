@@ -80,7 +80,7 @@ def generate_hop(
         hop_enabled_in_one_direction = enabled_dir0 or enabled_dir1
     # print("Generating hop: capacities", capacities, "enabled_dir0",
     # enabled_dir0, "enabled_dir1", enabled_dir1)
-    return Hop(capacities, enabled_dir0, enabled_dir1, balances)
+    return Hop(capacities, enabled_dir0, enabled_dir1, [], balances)
 
 
 def generate_hops(
@@ -126,7 +126,7 @@ def probe_single_hop(hop: Hop, bs, jamming, pss=False):
     - num_probes: the total number of probes done
     - num_jams: the total number of jams done
     """
-    initial_uncertainty = hop.uncertainty
+    initial_uncertainty = hop.uncertainty_pss if pss else hop.uncertainty
     num_probes, num_jams = probe_hop_without_jamming(hop, bs, pss=pss), 0
     if jamming:
         for i in range(hop.N):
@@ -142,7 +142,7 @@ def probe_single_hop(hop: Hop, bs, jamming, pss=False):
             num_probes += num_probes_i
             num_jams += num_jams_i
     hop.unjam_all()
-    final_uncertainty = hop.uncertainty
+    final_uncertainty = hop.uncertainty_pss if pss else hop.uncertainty
     gain = initial_uncertainty - final_uncertainty
     # return gain in bits and used number of probes
     return gain, num_probes, num_jams
@@ -214,7 +214,11 @@ def probe_hops_direct(hops, bs, jamming, pss=False):
     """
     for hop in hops:
         hop.set_h_and_g(pss)
-    initial_uncertainty_total = sum([hop.uncertainty for hop in hops])
+    initial_uncertainty_total = (
+        sum([hop.uncertainty_pss for hop in hops])
+        if pss
+        else sum([hop.uncertainty for hop in hops])
+    )
     gains, probes_list = [], []
     for hop in hops:
         gain, probes, jams = probe_single_hop(
@@ -225,7 +229,11 @@ def probe_hops_direct(hops, bs, jamming, pss=False):
         probes_list.append(probes + jams)
     # print("\nProbed with method:", "bs" if bs else "nbs", "with
     # jamming" if jamming else "without jamming")
-    final_uncertainty_total = sum([hop.uncertainty for hop in hops])
+    final_uncertainty_total = (
+        sum([hop.uncertainty_pss for hop in hops])
+        if pss
+        else sum([hop.uncertainty for hop in hops])
+    )
     # print("Final uncertainty:", final_uncertainty_total) print("Total
     # gain:   ", round(sum(gains),2), "after", sum(probes_list),
     # "probes") print("Average per hop:  ",

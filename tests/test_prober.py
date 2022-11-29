@@ -1,23 +1,14 @@
+import os
+
 import pytest
 
-from hop import Hop, dir0, dir1
+from hop import Hop
 from prober import Prober
 
-SNAPSHOT_FILENAME = "./snapshots/listchannels-2021-12-09.json"
+SNAPSHOT_FILENAME = "./tests/data/channels.json"
 ENTRY_CHANNEL_CAPACITY = 10 * 100 * 1000 * 1000
 # top 10 nodes by degree as per https://1ml.com/node?order=channelcount
-ENTRY_NODES = [
-    "02ad6fb8d693dc1e4569bcedefadf5f72a931ae027dc0f0c544b34c1c6f3b9a02b",
-    "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-    "0217890e3aad8d35bc054f43acc00084b25229ecff0ab68debd82883ad65ee8266",
-    "0331f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c",
-    "0242a4ae0c5bef18048fbecf995094b74bfb0f7391418d71ed394784373f41e4f3",
-    "03bb88ccc444534da7b5b64b4f7b15e1eccb18e102db0e400d4b9cfe93763aa26d",
-    "03abf6f44c355dec0d5aa155bdbdd6e0c8fefe318eff402de65c6eb2e1be55dc3e",
-    "02004c625d622245606a1ea2c1c69cfb4516b703b47945a3647713c05fe4aaeb1c",
-    "0395033b252c6f40e3756984162d68174e2bd8060a129c0d3462a9370471c6d28f",
-    "0390b5d4492dc2f5318e5233ab2cebf6d48914881a33ef6a9c6bcdbb433ad986d0",
-]
+ENTRY_NODES = ["Alice", "Bob", "Carol"]
 
 
 @pytest.fixture
@@ -33,10 +24,8 @@ def prober():
     [
         (
             (
-                "037386ef907ad3e95682516bc100d971e12211f42f782ff9b0e7fd"
-                + "7ac9050920a2",
-                "035bddb48a2b891a8e2a704234cb13405d63c62fcd8aa1c6f5ea10"
-                + "c4c027654af7",
+                "Carol",
+                "Judy",
             ),  # target_node_pair
             True,  # bs
             False,  # Jamming
@@ -44,10 +33,8 @@ def prober():
         ),
         (
             (
-                "037386ef907ad3e95682516bc100d971e12211f42f782ff9b0e7fd"
-                + "7ac9050920a2",
-                "035bddb48a2b891a8e2a704234cb13405d63c62fcd8aa1c6f5ea10"
-                + "c4c027654af7",
+                "Harold",
+                "Alice",
             ),  # target_node_pair
             True,  # bs
             False,  # Jamming
@@ -59,12 +46,49 @@ def test_probe_hop(target_node_pair, bs, jamming, pss, prober: Prober):
     # target_hops_node_pair =
     # prober.choose_target_hops_with_n_channels(1, 1)
     prober.probe_hop(target_node_pair, bs=bs, jamming=jamming, pss=pss)
-    target_hop: Hop = prober.lnhopgraph[target_node_pair[0]][
-        target_node_pair[1]
-    ]["hop"]
+    target_hop: Hop = (
+        prober.psshopgraph[target_node_pair[0]][target_node_pair[1]]["hop"]
+        if pss
+        else prober.lnhopgraph[target_node_pair[0]][target_node_pair[1]]["hop"]
+    )
     assert target_hop.g_l == target_hop.g - 1
     assert target_hop.g_u == target_hop.g
     assert target_hop.h_l == target_hop.h - 1
     assert target_hop.h_u == target_hop.h
     assert target_hop.b_l == list(map(lambda x: x - 1, target_hop.b))
     assert target_hop.b_u == target_hop.b
+
+
+def test_channels_json():
+    filename = "./tests/data/channels.json"
+    entry_nodes = ["Alice", "Bob", "Carol"]
+    Prober(filename, "PROBER", entry_nodes, ENTRY_CHANNEL_CAPACITY)
+
+    # paths = list(prober.paths_for_amount(("Dave", "Erin"), 2000))
+
+    assert True
+
+
+def test_export_graph():
+    filename = "./tests/data/channels.json"
+    entry_nodes = ["Alice", "Bob", "Carol"]
+    prober = Prober(filename, "PROBER", entry_nodes, ENTRY_CHANNEL_CAPACITY)
+    filename_lnhopgraph = "./tests/data/hopgraph-2022-11-25.gml"
+    filename_psshopgraph = "./tests/data/psshopgraph-2022-11-25.gml"
+    prober.export_graph(prober.lnhopgraph, filename_lnhopgraph)
+    prober.export_graph(prober.psshopgraph, filename_psshopgraph)
+
+    assert os.path.exists(filename_lnhopgraph)
+    assert os.path.exists(filename_psshopgraph)
+
+
+def test_import_graph():
+    filename = [
+        "./tests/data/hopgraph-2022-11-25.gml",
+        "./tests/data/psshopgraph-2022-11-25.gml",
+    ]
+    prober = Prober(filename, "PROBER", None, None, gml_file=True)
+    assert prober.lnhopgraph["Alice"]["Bob"]["hop"].g_u == 60000
+    assert prober.lnhopgraph["Alice"]["Bob"]["hop"].h_u == 100000
+    assert prober.psshopgraph["Alice"]["Bob"]["hop"].g_u == 424885
+    assert prober.psshopgraph["Alice"]["Bob"]["hop"].h_u == 524885

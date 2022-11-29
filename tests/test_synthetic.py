@@ -288,10 +288,44 @@ def test_generate_hop():
                 "g_u": 3461257,
             },  # success
         ),
+        (
+            [100000, 60000],  # C
+            [72345, 23458],  # B
+            [0, 1],  # e_dir0
+            [0, 1],  # e_dir1
+            False,  # pss
+            False,  # bs
+            {
+                "num_probes": 32,
+                "b_l": [72344, 23457],
+                "b_u": [72345, 23458],
+                "h_l": 72344,
+                "h_u": 72345,
+                "g_l": 36541,
+                "g_u": 36542,
+            },  # success
+        ),
+        (
+            [2017461, 2017461, 2017461],  # C
+            [701210, 717798, 1172118],  # B
+            [0, 1, 2],  # e_dir0
+            [0, 1, 2],  # e_dir1
+            True,  # pss
+            False,  # bs
+            {
+                "num_probes": 44,
+                "b_l": [-1, -1, -1],
+                "b_u": [2017461, 2017461, 2017461],
+                "h_l": 2591125,
+                "h_u": 2591126,
+                "g_l": 3461256,
+                "g_u": 3461257,
+            },  # success
+        ),
     ],
 )
 def test_probe_hop_without_jamming(C, B, e_dir0, e_dir1, pss, bs, success):
-    hop: Hop = Hop(C, e_dir0, e_dir1, B)
+    hop: Hop = Hop(C, e_dir0, e_dir1, [], B)
     hop.set_h_and_g(pss)
     num_probes = probe_hop_without_jamming(hop, bs, pss)
     assert num_probes == success["num_probes"]
