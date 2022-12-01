@@ -35,6 +35,6 @@ def prober():
 )
 def test_run_one_instance_of_experiment(remote_probing, bs, pss, prober):
     gains_line, speed_line = run_one_instance_of_experiment(
-        False, remote_probing, bs, pss, [1, 2, 3], 2, prober, 5
+        False, remote_probing, bs, pss, [1], 1, prober, 1
     )
     assert True

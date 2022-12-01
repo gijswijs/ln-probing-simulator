@@ -1165,3 +1165,210 @@ class Hop:
                 pass
             self.update_dependent_hop_properties(pss)
         return probe_passed
+
+    def analysis(self):
+        """
+        Returns what a perfect probe should return, based on the actual
+        balances, h- and g-values. Where a probe doesn't have access to
+        these values (we probe to *detect* these values!) the analysis
+        does have access to these values. So we can calculate the exact
+        data a perfect probe should return. The analysis assumes h,g and
+        c are correct.
+        """
+        hop_info = dict()
+        hop_info["h_l"] = self.h - 1
+        hop_info["h_u"] = self.h
+        hop_info["g_l"] = self.g - 1
+        hop_info["g_u"] = self.g
+        hop_info["b_l_dir0"] = [-1] * self.N
+        hop_info["b_u_dir0"] = self.c.copy()
+        hop_info["b_l_dir1"] = [-1] * self.N
+        hop_info["b_u_dir1"] = self.c.copy()
+        hop_info["b_l"] = [-1] * self.N
+        hop_info["b_u"] = self.c.copy()
+        hop_info["uncertainty"] = None
+        hop_info["uncertainty_pss"] = None
+
+        def update_b_l_b_u(b_l, b_u, l, u, direction):
+            if self.pss:
+                largest_succesful_probe = l + 1
+                smallest_failed_probe = u + 1
+                # Use u to calculate b_u. h is the smallest failed probe
+                # in the given direction.
+                for i in self.e[direction]:
+                    b_u[i] = min(
+                        smallest_failed_probe
+                        - sum(b_l[j] + 1 for j in self.e[direction] if j != i)
+                        - 1,
+                        self.c[i],
+                        b_u[i],
+                    )
+
+                # Use l to calculate b_l. l + 1 is the largest
+                # successful probe in the given direction.
+                for i in self.e[direction]:
+                    b_l[i] = max(
+                        largest_succesful_probe
+                        - sum(b_u[j] for j in self.e[direction] if j != i)
+                        - 1,
+                        -1,
+                        b_l[i],
+                    )
+            else:
+                if len(self.e[direction]) == 1:
+                    # if only one channel is enabled, we can
+                    # update this channel's lower bound
+
+                    # FIXME: This assumption is incorrect. If
+                    # only one channel with enough capacity
+                    # (b_u) is enabled, you can update the
+                    # bound.
+                    b_l[0] = max(l, b_l[0])
+                for i in self.e[direction]:
+                    b_u[i] = min(b_u[i], u)
+
+        def get_corner_points():
+            R_u_u = R_h_u.intersect_with(R_g_u).intersect_with(R_b)
+            R_u_l = R_h_u.intersect_with(R_g_l).intersect_with(R_b)
+            R_l_u = R_h_l.intersect_with(R_g_u).intersect_with(R_b)
+            ranges = [
+                [R_u_u.l_vertex[i], R_u_u.u_vertex[i]]
+                for i in range(len(R_u_u.l_vertex))
+            ]
+            points = []
+            points_left = S_F
+            for p in product(*ranges):
+                if not R_u_l.contains_point(p) and not R_l_u.contains_point(p):
+                    points.append(p)
+                    points_left -= 1
+                if points_left == 0:
+                    break
+            return points
+
+        def worth_probing_channel(i):
+            # is it worth doing jamming-enhanced probing on this channel?
+            return hop_info["b_u"][i] - hop_info["b_l"][i] > 1 and (
+                self.can_forward(dir0) or self.can_forward(dir1)
+            )
+
+        update_b_l_b_u(
+            hop_info["b_l_dir0"],
+            hop_info["b_u_dir0"],
+            hop_info["h_l"],
+            hop_info["h_u"],
+            dir0,
+        )
+
+        for i, c in enumerate(self.c):
+            hop_info["b_l_dir1"][i] = max(
+                hop_info["b_l_dir1"][i], c - hop_info["b_u_dir0"][i] - 1
+            )
+            hop_info["b_u_dir1"][i] = min(
+                hop_info["b_u_dir1"][i], c - hop_info["b_l_dir0"][i] - 1
+            )
+
+        update_b_l_b_u(
+            hop_info["b_l_dir1"],
+            hop_info["b_u_dir1"],
+            hop_info["g_l"],
+            hop_info["g_u"],
+            dir1,
+        )
+
+        for i, c in enumerate(self.c):
+            hop_info["b_l_dir0"][i] = max(
+                hop_info["b_l_dir0"][i], c - hop_info["b_u_dir1"][i] - 1
+            )
+            hop_info["b_u_dir0"][i] = min(
+                hop_info["b_u_dir0"][i], c - hop_info["b_l_dir1"][i] - 1
+            )
+
+        update_b_l_b_u(
+            hop_info["b_l_dir0"],
+            hop_info["b_u_dir0"],
+            hop_info["h_l"],
+            hop_info["h_u"],
+            dir0,
+        )
+
+        for i, c in enumerate(self.c):
+            hop_info["b_l_dir1"][i] = max(
+                hop_info["b_l_dir1"][i], c - hop_info["b_u_dir0"][i] - 1
+            )
+            hop_info["b_u_dir1"][i] = min(
+                hop_info["b_u_dir1"][i], c - hop_info["b_l_dir0"][i] - 1
+            )
+
+        for i, c in enumerate(self.c):
+            hop_info["b_l"][i] = max(
+                hop_info["b_l_dir0"][i], c - hop_info["b_u_dir1"][i] - 1
+            )
+            hop_info["b_u"][i] = min(
+                hop_info["b_u_dir0"][i], c - hop_info["b_l_dir1"][i] - 1
+            )
+
+        R_b = Rectangle(
+            [b_l_i + 1 for b_l_i in hop_info["b_l"]], hop_info["b_u"]
+        )
+        R_b_pss = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i not in self.a
+            ],
+            [
+                b_l_u
+                for i, b_l_u in enumerate(hop_info["b_u"])
+                if i not in self.a
+            ],
+        )
+        if not self.pss:
+            R_h_l = ProbingRectangle(
+                self, direction=dir0, bound=hop_info["h_l"]
+            )
+            R_h_u = ProbingRectangle(
+                self, direction=dir0, bound=hop_info["h_u"]
+            )
+            R_g_l = ProbingRectangle(
+                self, direction=dir1, bound=hop_info["g_l"]
+            )
+            R_g_u = ProbingRectangle(
+                self, direction=dir1, bound=hop_info["g_u"]
+            )
+            S_F = self.S_F_generic(R_h_l, R_h_u, R_g_l, R_g_u, R_b)
+        else:
+            S_F = R_b.S()
+            S_F_pss = R_b_pss.S()
+            hop_info["uncertainty_pss"] = max(
+                0, log2(S_F_pss) - log2(self.granularity)
+            )
+
+        hop_info["uncertainty"] = max(0, log2(S_F) - log2(self.granularity))
+
+        if hop_info["uncertainty"] == 0 and not self.pss:
+            corner_points = get_corner_points()
+            assert len(corner_points) <= 1
+            if len(corner_points) == 1:
+                p = corner_points[0]
+                for i in range(self.N):
+                    if worth_probing_channel(i):
+                        hop_info["b_l"][i] = p[i] - 1
+                        hop_info["b_u"][i] = p[i]
+                if len(self.e[dir0]) > 0:
+                    hop_info["h_l"] = max(
+                        hop_info["h_l"], min([p[i] for i in self.e[dir0]]) - 1
+                    )
+                    hop_info["h_u"] = min(
+                        hop_info["h_u"], max([p[i] for i in self.e[dir0]])
+                    )
+                if len(self.e[dir1]):
+                    hop_info["g_l"] = max(
+                        hop_info["g_l"],
+                        min([self.c[i] - p[i] for i in self.e[dir1]]) - 1,
+                    )
+                    hop_info["g_u"] = min(
+                        hop_info["g_u"],
+                        max([self.c[i] - p[i] for i in self.e[dir1]]),
+                    )
+
+        return hop_info

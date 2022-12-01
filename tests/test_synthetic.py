@@ -306,6 +306,40 @@ def test_generate_hop():
             },  # success
         ),
         (
+            [100000, 100000],  # C
+            [72345, 23458],  # B
+            [0, 1],  # e_dir0
+            [0, 1],  # e_dir1
+            False,  # pss
+            False,  # bs
+            {
+                "num_probes": 33,
+                "b_l": [23457, 23457],
+                "b_u": [72345, 72345],
+                "h_l": 72344,
+                "h_u": 72345,
+                "g_l": 76541,
+                "g_u": 76542,
+            },  # success
+        ),
+        (
+            [100000, 100000, 100000],  # C
+            [72345, 23458, 67812],  # B
+            [0, 1, 2],  # e_dir0
+            [0, 1, 2],  # e_dir1
+            False,  # pss
+            False,  # bs
+            {
+                "num_probes": 32,
+                "b_l": [23457, 23457, 23457],
+                "b_u": [72345, 72345, 72345],
+                "h_l": 72344,
+                "h_u": 72345,
+                "g_l": 76541,
+                "g_u": 76542,
+            },  # success
+        ),
+        (
             [2017461, 2017461, 2017461],  # C
             [701210, 717798, 1172118],  # B
             [0, 1, 2],  # e_dir0
@@ -325,9 +359,11 @@ def test_generate_hop():
     ],
 )
 def test_probe_hop_without_jamming(C, B, e_dir0, e_dir1, pss, bs, success):
-    hop: Hop = Hop(C, e_dir0, e_dir1, [], B)
-    hop.set_h_and_g(pss)
+    hop: Hop = Hop(C, e_dir0, e_dir1, [], B, pss=pss)
+    hop_analysis = hop.analysis()
+
     num_probes = probe_hop_without_jamming(hop, bs, pss)
+
     assert num_probes == success["num_probes"]
     assert hop.b_l == success["b_l"]
     assert hop.b_u == success["b_u"]
@@ -335,3 +371,10 @@ def test_probe_hop_without_jamming(C, B, e_dir0, e_dir1, pss, bs, success):
     assert hop.h_u == success["h_u"]
     assert hop.g_l == success["g_l"]
     assert hop.g_u == success["g_u"]
+    assert hop.b_l == hop_analysis["b_l"]
+    assert hop.b_u == hop_analysis["b_u"]
+    assert hop.h_l == hop_analysis["h_l"]
+    assert hop.h_u == hop_analysis["h_u"]
+    assert hop.g_l == hop_analysis["g_l"]
+    assert hop.g_u == hop_analysis["g_u"]
+    assert hop.uncertainty == hop_analysis["uncertainty"]

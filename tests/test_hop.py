@@ -9,6 +9,19 @@ def hop_instance():
     return hop
 
 
+@pytest.fixture
+def hop_pss_instance():
+    hop = Hop([150000, 80000], [0, 1], [0, 1], [1], [70000, 30000], pss=True)
+    return hop
+
+
+def test_hop_init(hop_instance, hop_pss_instance):
+    assert hop_instance.N == 1
+    assert hop_pss_instance.N == 2
+    assert hop_instance.h_u == 150000
+    assert hop_pss_instance.h_u == 230000
+
+
 def test_can_forward(hop_instance: Hop):
     can_forward_dir0 = hop_instance.can_forward(dir0)
     can_forward_dir1 = hop_instance.can_forward(dir1)

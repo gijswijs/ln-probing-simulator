@@ -622,7 +622,7 @@ class Prober:
             (u, v)
             for u, v, e in self.lnhopgraph.edges(data=True)
             if (
-                e["hop"].N == num_channels
+                e["hop"].N - len(e["hop"].a) == num_channels
                 and (e["hop"].can_forward(dir0) or e["hop"].can_forward(dir1))
             )
         ]

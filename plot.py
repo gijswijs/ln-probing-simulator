@@ -131,7 +131,11 @@ def plot(
         ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
         ax.tick_params(axis="x", labelsize=TICKSIZE)
         ax.tick_params(axis="y", labelsize=TICKSIZE)
-        ax.legend(fontsize=LEGENDSIZE, loc="lower left")
+        ax.legend(
+            fontsize=LEGENDSIZE,
+            bbox_to_anchor=(1, 1),
+            bbox_transform=fig.transFigure,
+        )
         ax.set_title(
             ["Non-enhanced\n", "Jamming-enhanced\n"][i], fontsize=LABELSIZE
         )

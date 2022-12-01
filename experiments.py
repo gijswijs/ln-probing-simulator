@@ -448,10 +448,17 @@ def run_one_instance_of_experiment(
                         num_target_hops, num_channels
                     )
                 )
-                target_hops = [
-                    prober.lnhopgraph[u][v]["hop"]
-                    for (u, v) in target_hops_node_pairs
-                ]
+                target_hops = (
+                    [
+                        prober.psshopgraph[u][v]["hop"]
+                        for (u, v) in target_hops_node_pairs
+                    ]
+                    if pss
+                    else [
+                        prober.lnhopgraph[u][v]["hop"]
+                        for (u, v) in target_hops_node_pairs
+                    ]
+                )
             else:
                 # TODO: PSS doesn't support synthetic hops yet
                 # generate target hops, probe them in direct mode
