@@ -65,7 +65,7 @@ def plot(
     # data is a list of points corresponding to the number of channels
     # from 1 to len(data)+1
     LABELSIZE = 20
-    LEGENDSIZE = 18
+    LEGENDSIZE = 16
     TICKSIZE = 18
     FIGSIZE = (14, 8)
     # assert(len(y_data_lists) == 2)
@@ -126,19 +126,20 @@ def plot(
                 eb[0].set_linestyle(linestyle)
         ax.set_xlim([0, max(x_data) + 1])
         ax.set_ylim([0, 1.1])
-        plt.tight_layout()
         ax.set_xticks(x_data)
         ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
         ax.tick_params(axis="x", labelsize=TICKSIZE)
         ax.tick_params(axis="y", labelsize=TICKSIZE)
         ax.legend(
             fontsize=LEGENDSIZE,
-            bbox_to_anchor=(1, 1),
-            bbox_transform=fig.transFigure,
+            loc="upper left",
+            bbox_to_anchor=(1.01, 1),
+            borderaxespad=0,
         )
         ax.set_title(
             ["Non-enhanced\n", "Jamming-enhanced\n"][i], fontsize=LABELSIZE
         )
+        plt.tight_layout()
     path = os.path.join(SAVE_RESULTS_TO, filename)
     if extension is not None:
         plt.savefig(path + extension)

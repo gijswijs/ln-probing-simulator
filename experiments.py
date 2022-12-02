@@ -496,7 +496,7 @@ def run_one_instance_of_experiment(
         "pink",
         "gray",
         "olive",
-        "cyan",
+        "brown",
     ]
     speed_line_color = (
         (
