@@ -1,6 +1,7 @@
 import pytest
 
 from hop import Hop, dir0, dir1
+from rectangle import Rectangle
 
 
 @pytest.fixture
@@ -95,30 +96,83 @@ def test_probe_hop_with_multiple_channels_pss():
     assert hop.h == 188000
     assert hop.g_u == 90000
     assert hop.g_l == -1
-    assert hop.uncertainty == 63.642801598496085
-    assert hop.S_F == 14400988024500260001
+    assert hop.uncertainty == 61.03726544366254
+    # assert hop.S_F == 14_400_988_024_500_260_001 1.3e+19
+    assert hop.S_F == 2_366_179_851_025_390_001
     assert hop.b_l == [-1, -1, -1, 9999]
     assert hop.b_u == [40000, 50000, 80000, 100000]
 
 
 @pytest.mark.parametrize(
-    "C, B, pss, direction, success",
+    "C, B, pss, direction",
     [
-        ([100000, 60000], [26000, 23000], True, dir0, False),
-        ([100000, 60000], [74000, 37000], True, dir1, False),
-        ([100000, 60000], [74000, 37000], True, dir0, True),
-        ([100000, 60000], [26000, 23000], True, dir1, True),
+        ([100000, 60000], [26000, 23000], True, dir0),
+        ([100000, 60000], [74000, 37000], True, dir1),
+        ([100000, 60000], [74000, 37000], True, dir0),
+        ([100000, 60000], [26000, 23000], True, dir1),
     ],
 )
-def test_next_a(C, B, pss, direction, success):
-    hop = Hop(C, [0, 1], [0, 1], [], B)
+def test_next_a(C, B, pss, direction):
+    hop = Hop(C, [0, 1], [0, 1], [], B, pss=pss)
     hop.set_h_and_g(pss)
     initial_S_F = hop.S_F
-    amount = hop.next_a(direction, False, False, pss, success)
+    amount = hop.next_a(direction, False, False, pss)
     print(amount)
     hop.probe(direction, amount, pss)
     new_S_F = hop.S_F
     assert round(initial_S_F / new_S_F) == 2
+
+
+def test_S_F_probe_fail():
+    hop = Hop([100000, 60000], [0, 1], [0, 1], [], [26000, 23000], pss=True)
+    assert hop.S_F == 100001 * 60001
+    amount = 140001
+    hop.probe(dir0, amount, True)
+    rect = Rectangle([0, 0], [100001, 60001])
+    cut = rect.cut(160000 - amount)
+    assert hop.S_F == 100001 * 60001 - cut
+
+
+def test_S_F_probe_fail_small():
+    hop = Hop([100, 60], [0], [0, 1], [], [26, 23], pss=True)
+    assert hop.S_F == 101 * 61
+    amount = 51
+    hop.probe(dir0, amount, True)
+    rect = Rectangle([0, 0], [101, 61])
+    cut = rect.cut(amount)
+    assert hop.S_F == 51 * 61 - cut
+
+
+def test_S_F_probe_fail_2():
+    hop = Hop([100000, 60000], [0], [0, 1], [], [26000, 23000], pss=True)
+    assert hop.S_F == 100001 * 60001
+    amount = 80001
+    hop.probe(dir0, amount, True)
+    assert hop.S_F == 80001 * 60001
+
+
+def test_S_F_probe_success():
+    hop = Hop([100000, 60000], [0, 1], [0, 1], [], [26000, 23000], pss=True)
+    assert hop.S_F == 100001 * 60001
+    amount = 20000
+    hop.probe(dir0, amount, True)
+    assert hop.S_F == 100001 * 60001 - 20000 * 10000
+
+
+def test_S_F_dir1_probe_success():
+    hop = Hop([100000, 60000], [0, 1], [0, 1], [], [26000, 23000], pss=True)
+    assert hop.S_F == 100001 * 60001
+    amount = 20000
+    hop.probe(dir1, amount, True)
+    assert hop.S_F == 100001 * 60001 - 20000 * 10000
+
+
+def test_S_F_dir1_probe_fail():
+    hop = Hop([100000, 60000], [0, 1], [0, 1], [], [26000, 23000], pss=True)
+    assert hop.S_F == 100001 * 60001
+    amount = 140001
+    hop.probe(dir1, amount, True)
+    assert hop.S_F == 100001 * 60001 - 20000 * 10000
 
 
 @pytest.mark.parametrize(

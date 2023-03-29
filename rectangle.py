@@ -35,6 +35,8 @@ Luxembourg SPDX-License-Identifier: MIT
 
 import operator
 from functools import reduce
+from itertools import combinations
+from math import comb
 
 
 class Rectangle:
@@ -168,6 +170,64 @@ class Rectangle:
                     self.u_vertex[i], other_rectangle.u_vertex[i]
                 )
         return Rectangle(intersection_l_vertex, intersection_u_vertex)
+
+    def cut(self, n):
+        """
+        Slice a rectangle/cube by a value n. Return the cardinality of
+        the set of latice points for which the sum of its coordinates is
+        less than n.
+        """
+
+        def pyramid_latice_points(x, dimensions):
+            """
+            The latice points in our pyramids follow Pascal's triangle
+            of binomial coefficients
+            """
+            if x < 0:
+                return 0
+            # calculate the row to pick in Pascal's triangle
+            n = dimensions + x
+            # x is the column to pick in Pascal's triangle
+            return comb(n, x)
+
+        min_val = sum(self.l_vertex)
+        max_val = sum(self.u_vertex)
+        if self.is_empty or n == 0:
+            return 0
+
+        if n > max_val:
+            return self.S()
+
+        widths = [
+            coord_u - coord_l
+            for coord_l, coord_u in zip(self.l_vertex, self.u_vertex)
+        ]
+
+        # since we work with widths, we translated the rectangle
+        # l_vertex to the origin. We adjust n for that
+        n = max(n - min_val, 0)
+
+        # pyramids that we should subtract
+        pyramids = list(filter(lambda x: x + 1 < n, widths))
+
+        # substracted pyramids that overlap should be added
+        overlap_pyramids = list(
+            filter(lambda x: x[0] + x[1] + 2 < n, combinations(widths, 2))
+        )
+        dimensions = len(self.l_vertex)
+
+        corr = reduce(
+            lambda acc, val: acc + pyramid_latice_points(val, dimensions),
+            map(lambda x: n - x - 2, pyramids),
+            0,
+        )
+        overlap_corr = reduce(
+            lambda acc, val: acc + pyramid_latice_points(val, dimensions),
+            map(lambda x: n - x[0] - x[1] - 3, overlap_pyramids),
+            0,
+        )
+
+        return pyramid_latice_points(n - 1, dimensions) - corr + overlap_corr
 
 
 class ProbingRectangle(Rectangle):

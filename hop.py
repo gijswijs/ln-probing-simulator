@@ -214,18 +214,24 @@ class Hop:
             self.R_h_u = ProbingRectangle(self, direction=dir0, bound=self.h_u)
             self.R_g_l = ProbingRectangle(self, direction=dir1, bound=self.g_l)
             self.R_g_u = ProbingRectangle(self, direction=dir1, bound=self.g_u)
-        self.R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
-        self.R_b_pss = Rectangle(
-            [b_l_i + 1 for i, b_l_i in enumerate(self.b_l) if i not in self.a],
-            [b_l_u for i, b_l_u in enumerate(self.b_u) if i not in self.a],
-        )
-        if not pss:
+            self.R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
             self.S_F = self.S_F_generic(
                 self.R_h_l, self.R_h_u, self.R_g_l, self.R_g_u, self.R_b
             )
         else:
-            self.S_F = self.R_b.S()
-            self.S_F_pss = self.R_b_pss.S()
+            self.R_b = Rectangle([0] * len(self.c), self.c)
+            self.R_b_pss = Rectangle(
+                [0] * (len(self.c) - len(self.a)),
+                [c_i for i, c_i in enumerate(self.c) if i not in self.a],
+            )
+            self.S_F = (
+                self.R_b.S() - self.R_b.cut(self.g_l) - self.R_b.cut(self.h_l)
+            )
+            self.S_F_pss = (
+                self.R_b_pss.S()
+                - self.R_b_pss.cut(self.g_l)
+                - self.R_b_pss.cut(self.h_l)
+            )
             self.uncertainty_pss = max(
                 0, log2(self.S_F_pss) - log2(self.granularity)
             )
@@ -479,7 +485,7 @@ class Hop:
         assert S_F >= 0, self
         return S_F
 
-    def S_F_a_expected(self, direction, a, pss=False, success=False):
+    def S_F_a_expected(self, direction, a, pss=False):
         """
         Calculate the _potential_ S(F) if the probe of amount a fails
         ("area under the cut").
@@ -535,50 +541,52 @@ class Hop:
             )
         else:
             # PSS
-            if success:
-                # mimic the scenario when probe succeeds
-                if direction == dir0:
-                    for i in available_channels:
-                        new_b_l[i] = max(
-                            new_b_l[i],
-                            max(
-                                a
-                                - sum(
-                                    self.c[j]
-                                    for j in available_channels
-                                    if j != i
-                                )
-                                - 1,
-                                -1,
-                            ),
-                        )
-                else:
-                    for i in available_channels:
-                        new_b_u[i] = min(
-                            new_b_u[i],
-                            min(
-                                self.c[i]
-                                - a
-                                + sum(
-                                    self.c[j]
-                                    for j in available_channels
-                                    if j != i
-                                ),
-                                self.c[i],
-                            ),
-                        )
+            if direction == dir0:
+                # new_h_u = a - 1
+                # new_g_u = self.g_u
+                for i in available_channels:
+                    # probe failed => all available channels have
+                    # insufficient balances TODO: Seems to me you should
+                    # use the real b_u here...
+                    new_b_u[i] = min(new_b_u[i], a - 1)
+                new_g_l = max(
+                    sum(
+                        self.c[j]
+                        for j in available_channels
+                        if j in self.e[not direction]
+                    )
+                    - a,
+                    -1,
+                )
+                new_h_l = self.h_l
             else:
-                # mimic the scenario when probe fails
-                if direction == dir0:
-                    new_h_u = a - 1
-                    for i in available_channels:
-                        new_b_u[i] = min(new_b_u[i], new_h_u)
-                else:
-                    new_g_u = a - 1
-                    for i in available_channels:
-                        new_b_l[i] = max(new_b_l[i], self.c[i] - new_g_u - 1)
-            new_R_b = Rectangle([b_l_i + 1 for b_l_i in new_b_l], new_b_u)
-            S_F_a = new_R_b.S()
+                # new_g_u = a - 1
+                # new_h_u = self.h_u
+                for i in available_channels:
+                    # TODO: Seems to me you should use the real b_u
+                    # here...
+                    new_b_l[i] = max(
+                        self.c[i]
+                        - a
+                        + sum(
+                            self.c[j] - new_b_u[j]
+                            for j in available_channels
+                            if j != i
+                        ),
+                        -1,
+                    )
+                new_h_l = max(
+                    sum(
+                        self.c[j]
+                        for j in available_channels
+                        if j in self.e[not direction]
+                    )
+                    - a,
+                    -1,
+                )
+                new_g_l = self.g_l
+            new_R_b = Rectangle(new_b_l, new_b_u)
+            S_F_a = new_R_b.S() - new_R_b.cut(new_g_l) - new_R_b.cut(new_h_l)
         # print("  expected area under the cut:", S_F_a, "(assuming
         # failed probe)")
         return S_F_a
@@ -618,7 +626,7 @@ class Hop:
         # is there any uncertainty left in the hop?
         return self.uncertainty > 0
 
-    def next_a(self, direction, bs, jamming, pss=False, success=False):
+    def next_a(self, direction, bs, jamming, pss=False):
         """
         Calculate the optimal (NBS) amount for probe in direction. The
         NBS amount shrinks S(F) by half. (In other words, the probe
@@ -636,26 +644,26 @@ class Hop:
           in this direction
         """
 
-        def new_a(direction, start_a, a_l, a_u, pss, success=False):
-            while True:
-                S_F_a = self.S_F_a_expected(direction, start_a, pss, success)
-                # print(a_l, a, a_u)
-                if success:
-                    if S_F_a < S_F_half:
-                        a_u = start_a
-                    else:
-                        a_l = start_a
-                    new_a = (a_l + a_u + 1) // 2
-                else:
-                    if S_F_a < S_F_half:
-                        a_l = start_a
-                    else:
-                        a_u = start_a
-                    new_a = (a_l + a_u + 1) // 2
-                if new_a == start_a:
-                    break
-                start_a = new_a
-            return new_a
+        # def new_a(direction, start_a, a_l, a_u, pss, success=False):
+        #     while True:
+        #         S_F_a = self.S_F_a_expected(direction, start_a, pss, success)
+        #         # print(a_l, a, a_u)
+        #         if success:
+        #             if S_F_a < S_F_half:
+        #                 a_u = start_a
+        #             else:
+        #                 a_l = start_a
+        #             new_a = (a_l + a_u + 1) // 2
+        #         else:
+        #             if S_F_a < S_F_half:
+        #                 a_l = start_a
+        #             else:
+        #                 a_u = start_a
+        #             new_a = (a_l + a_u + 1) // 2
+        #         if new_a == start_a:
+        #             break
+        #         start_a = new_a
+        #     return new_a
 
         S_F_half = max(1, self.S_F // 2)
         if not jamming:
@@ -685,24 +693,33 @@ class Hop:
         if not bs and not jamming:
             # we only do binary search over S(F) in pre-jamming probing
             # phase
-
-            a = new_a(direction, a, a_l, a_u, pss, success)
-            if pss and (
-                (a_u - a <= 1 and success) or (a - a_l <= 1 and not success)
-            ):
-                # PSS amount can't give a lot of information, probably
-                # because we assumed a fail, and the previous amount
-                # succeeded or the other way around. Let's try assuming
-                # a the opposite.
-                a = new_a(direction, a, a_l, a_u, pss, not success)
-                if (a_u - a <= 1 and not success) or (
-                    a - a_l <= 1 and success
-                ):
-                    # PSS amount can't give a lot of information, either
-                    # way. Let's default back to binary search.
-                    a = (a_l + a_u + 1) // 2
-            # print("if a = ", a, ", then area under cut = ", S_F_a,
-            # ", need", S_F_half)
+            while True:
+                S_F_a = self.S_F_a_expected(direction, a, pss)
+                if S_F_a < S_F_half:
+                    a_l = a
+                else:
+                    a_u = a
+                new_a = (a_l + a_u + 1) // 2
+                if new_a == a:
+                    break
+                a = new_a
+            # a = new_a(direction, a, a_l, a_u, pss, success)
+            # if pss and (
+            #     (a_u - a <= 1 and success) or (a - a_l <= 1 and not success)
+            # ):
+            #     # PSS amount can't give a lot of information, probably
+            #     # because we assumed a fail, and the previous amount
+            #     # succeeded or the other way around. Let's try assuming
+            #     # a the opposite.
+            #     a = new_a(direction, a, a_l, a_u, pss, not success)
+            #     if (a_u - a <= 1 and not success) or (
+            #         a - a_l <= 1 and success
+            #     ):
+            #         # PSS amount can't give a lot of information, either
+            #         # way. Let's default back to binary search.
+            #         a = (a_l + a_u + 1) // 2
+            # # print("if a = ", a, ", then area under cut = ", S_F_a,
+            # # ", need", S_F_half)
         assert a > 0
         return a
 
@@ -750,76 +767,92 @@ class Hop:
             chosen_dir = dir0
         else:
             # next_a for the case the probe fails
-            a_dir0 = self.next_a(dir0, bs, jamming, pss, False)
-            a_dir1 = self.next_a(dir1, bs, jamming, pss, False)
-            if pss:
-                a_dir0_success = self.next_a(dir0, bs, jamming, pss, True)
-                a_dir1_success = self.next_a(dir1, bs, jamming, pss, True)
+            a_dir0 = self.next_a(dir0, bs, jamming, pss)
+            a_dir1 = self.next_a(dir1, bs, jamming, pss)
+            # if pss:
+            #     a_dir0_success = self.next_a(dir0, bs, jamming, pss, True)
+            #     a_dir1_success = self.next_a(dir1, bs, jamming, pss, True)
 
             if bs or prefer_small_amounts:
                 # choose smaller amount: more likely to pass
-                if pss:
-                    a_smallest = min(
-                        a_dir0, a_dir1, a_dir0_success, a_dir1_success
-                    )
-                    switch = {
-                        a_dir0: dir0,
-                        a_dir1: dir1,
-                        a_dir0_success: dir0,
-                        a_dir1_success: dir1,
-                    }
-                    chosen_dir = switch.get(a_smallest)
-                else:
-                    chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
+
+                # if pss:
+                #     a_smallest = min(
+                #         a_dir0, a_dir1, a_dir0_success, a_dir1_success
+                #     )
+                #     switch = {
+                #         a_dir0: dir0,
+                #         a_dir1: dir1,
+                #         a_dir0_success: dir0,
+                #         a_dir1_success: dir1,
+                #     }
+                #     chosen_dir = switch.get(a_smallest)
+                # else:
+                #     chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
+
+                chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
 
             else:
                 # prefer amount that splits in half better
                 S_F_half = max(1, self.S_F // 2)
-                S_F_a_dir0 = self.S_F_a_expected(dir0, a_dir0, pss, False)
-                S_F_a_dir1 = self.S_F_a_expected(dir1, a_dir1, pss, False)
-                if pss:
-                    S_F_a_dir0_success = self.S_F_a_expected(
-                        dir0, a_dir0_success, pss, True
-                    )
-                    S_F_a_dir1_success = self.S_F_a_expected(
-                        dir1, a_dir1_success, pss, True
-                    )
+                S_F_a_dir0 = self.S_F_a_expected(dir0, a_dir0, pss)
+                S_F_a_dir1 = self.S_F_a_expected(dir1, a_dir1, pss)
 
                 if (
                     abs(S_F_a_dir0 - S_F_a_dir1) / S_F_half
                     < threshold_area_difference
                 ):
                     chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
-                elif (
-                    pss
-                    and abs(S_F_a_dir0_success - S_F_a_dir1_success) / S_F_half
-                    < threshold_area_difference
-                ):
-                    chosen_dir = (
-                        dir0 if a_dir0_success < a_dir1_success else dir1
-                    )
                 else:
-                    if pss:
-                        S_F_a_smallest = min(
-                            S_F_a_dir0 - S_F_half,
-                            S_F_a_dir1 - S_F_half,
-                            S_F_a_dir0_success - S_F_half,
-                            S_F_a_dir1_success - S_F_half,
-                        )
-                        switch = {
-                            S_F_a_dir0 - S_F_half: dir0,
-                            S_F_a_dir1 - S_F_half: dir1,
-                            S_F_a_dir0_success - S_F_half: dir0,
-                            S_F_a_dir1_success - S_F_half: dir1,
-                        }
-                        chosen_dir = switch.get(S_F_a_smallest)
-                    else:
-                        chosen_dir = (
-                            dir0
-                            if abs(S_F_a_dir0 - S_F_half)
-                            < abs(S_F_a_dir1 - S_F_half)
-                            else dir1
-                        )
+                    chosen_dir = (
+                        dir0
+                        if abs(S_F_a_dir0 - S_F_half)
+                        < abs(S_F_a_dir1 - S_F_half)
+                        else dir1
+                    )
+                # if pss:
+                #     S_F_a_dir0_success = self.S_F_a_expected(
+                #         dir0, a_dir0_success, pss, True
+                #     )
+                #     S_F_a_dir1_success = self.S_F_a_expected(
+                #         dir1, a_dir1_success, pss, True
+                #     )
+
+                # if (
+                #     abs(S_F_a_dir0 - S_F_a_dir1) / S_F_half
+                #     < threshold_area_difference
+                # ):
+                #     chosen_dir = dir0 if a_dir0 < a_dir1 else dir1
+                # elif (
+                #     pss
+                #  and abs(S_F_a_dir0_success - S_F_a_dir1_success) / S_F_half
+                #     < threshold_area_difference
+                # ):
+                #     chosen_dir = (
+                #         dir0 if a_dir0_success < a_dir1_success else dir1
+                #     )
+                # else:
+                #     if pss:
+                #         S_F_a_smallest = min(
+                #             S_F_a_dir0 - S_F_half,
+                #             S_F_a_dir1 - S_F_half,
+                #             S_F_a_dir0_success - S_F_half,
+                #             S_F_a_dir1_success - S_F_half,
+                #         )
+                #         switch = {
+                #             S_F_a_dir0 - S_F_half: dir0,
+                #             S_F_a_dir1 - S_F_half: dir1,
+                #             S_F_a_dir0_success - S_F_half: dir0,
+                #             S_F_a_dir1_success - S_F_half: dir1,
+                #         }
+                #         chosen_dir = switch.get(S_F_a_smallest)
+                #     else:
+                #         chosen_dir = (
+                #             dir0
+                #             if abs(S_F_a_dir0 - S_F_half)
+                #             < abs(S_F_a_dir1 - S_F_half)
+                #             else dir1
+                #         )
         return chosen_dir
 
     def probe(self, direction, amount, pss=False):
@@ -985,26 +1018,36 @@ class Hop:
                             # of b_l and b_u wich are assumed to be in
                             # dir0). b_l_dir1 = c - b_u - 1 b_u_dir1 = c
                             # - b_l - 1
-                            if True in (
-                                self.c[i] - self.b_u[i] > 0
-                                for i in self.e[dir0]
-                                if i in self.e[dir1]
-                            ):
-                                self.g_l = max(
-                                    self.g_l,
-                                    min(
-                                        self.c[i]
-                                        - self.b_u[i]
-                                        - 1
-                                        + sum(
-                                            self.c[j] - self.b_l[j] - 1
-                                            for j in self.e[dir0]
-                                            if j != i and j in self.e[dir1]
-                                        )
-                                        for i in self.e[dir0]
-                                        if i in self.e[dir1]
-                                    ),
+
+                            # if True in (
+                            #     self.c[i] - self.b_u[i] > 0
+                            #     for i in self.e[dir0]
+                            #     if i in self.e[dir1]
+                            # ):
+                            #     self.g_l = max(
+                            #         self.g_l,
+                            #         min(
+                            #             self.c[i]
+                            #             - self.b_u[i]
+                            #             - 1
+                            #             + sum(
+                            #                 self.c[j] - self.b_l[j] - 1
+                            #                 for j in self.e[dir0]
+                            #                 if j != i and j in self.e[dir1]
+                            #             )
+                            #             for i in self.e[dir0]
+                            #             if i in self.e[dir1]
+                            #         ),
+                            #     )
+                            self.g_l = max(
+                                self.g_l,
+                                sum(
+                                    self.c[i]
+                                    for i in self.e[dir0]
+                                    if i in self.e[dir1]
                                 )
+                                - amount,
+                            )
                 if jamming:
                     # if we're jamming, we can update the only unjammed
                     # channel's upper bound
@@ -1112,24 +1155,34 @@ class Hop:
                             # in the payment in dir1 that is also
                             # enabled in dir0, than h_l is the lowest
                             # result of that set.
-                            if True in (
-                                self.b_l[i] > -1
-                                for i in self.e[dir1]
-                                if i in self.e[dir0]
-                            ):
-                                self.h_l = max(
-                                    self.h_l,
-                                    min(
-                                        self.b_l[i]
-                                        + sum(
-                                            self.b_u[j]
-                                            for j in self.e[dir1]
-                                            if j != i and j in self.e[dir0]
-                                        )
-                                        for i in self.e[dir1]
-                                        if i in self.e[dir0]
-                                    ),
+
+                            # if True in (
+                            #     self.b_l[i] > -1
+                            #     for i in self.e[dir1]
+                            #     if i in self.e[dir0]
+                            # ):
+                            #     self.h_l = max(
+                            #         self.h_l,
+                            #         min(
+                            #             self.b_l[i]
+                            #             + sum(
+                            #                 self.b_u[j]
+                            #                 for j in self.e[dir1]
+                            #                 if j != i and j in self.e[dir0]
+                            #             )
+                            #             for i in self.e[dir1]
+                            #             if i in self.e[dir0]
+                            #         ),
+                            #     )
+                            self.h_l = max(
+                                self.h_l,
+                                sum(
+                                    self.c[i]
+                                    for i in self.e[dir1]
+                                    if i in self.e[dir0]
                                 )
+                                - amount,
+                            )
 
                 if jamming:
                     self.b_l[available_channels[0]] = max(
@@ -1337,8 +1390,12 @@ class Hop:
             )
             S_F = self.S_F_generic(R_h_l, R_h_u, R_g_l, R_g_u, R_b)
         else:
-            S_F = R_b.S()
-            S_F_pss = R_b_pss.S()
+            S_F = R_b.S() - R_b.cut(hop_info["g_l"]) - R_b.cut(hop_info["h_l"])
+            S_F_pss = (
+                R_b_pss.S()
+                - R_b_pss.cut(hop_info["g_l"])
+                - R_b_pss.cut(hop_info["h_l"])
+            )
             hop_info["uncertainty_pss"] = max(
                 0, log2(S_F_pss) - log2(self.granularity)
             )
