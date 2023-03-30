@@ -219,19 +219,121 @@ class Hop:
                 self.R_h_l, self.R_h_u, self.R_g_l, self.R_g_u, self.R_b
             )
         else:
-            self.R_b = Rectangle([0] * len(self.c), self.c)
+            self.R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
+            self.R_b_dir0 = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i in self.e[dir0]
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i in self.e[dir0]
+                ],
+            )
+            self.R_b_not_dir0 = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i not in self.e[dir0]
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i not in self.e[dir0]
+                ],
+            )
+            self.R_b_dir1 = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i in self.e[dir1]
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i in self.e[dir1]
+                ],
+            )
+            self.R_b_not_dir1 = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i not in self.e[dir1]
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i not in self.e[dir1]
+                ],
+            )
             self.R_b_pss = Rectangle(
-                [0] * (len(self.c) - len(self.a)),
-                [c_i for i, c_i in enumerate(self.c) if i not in self.a],
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i not in self.a
+                ],
+                [b_u_i for i, b_u_i in enumerate(self.b_u) if i not in self.a],
             )
-            self.S_F = (
-                self.R_b.S() - self.R_b.cut(self.g_l) - self.R_b.cut(self.h_l)
+            self.R_b_dir0_pss = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i in self.e[dir0] and i not in self.a
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i in self.e[dir0] and i not in self.a
+                ],
             )
-            self.S_F_pss = (
-                self.R_b_pss.S()
-                - self.R_b_pss.cut(self.g_l)
-                - self.R_b_pss.cut(self.h_l)
+            self.R_b_not_dir0_pss = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i not in self.e[dir0] and i not in self.a
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i not in self.e[dir0] and i not in self.a
+                ],
             )
+            self.R_b_dir1_pss = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i in self.e[dir1] and i not in self.a
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i in self.e[dir1] and i not in self.a
+                ],
+            )
+            self.R_b_not_dir1_pss = Rectangle(
+                [
+                    b_l_i + 1
+                    for i, b_l_i in enumerate(self.b_l)
+                    if i not in self.e[dir1] and i not in self.a
+                ],
+                [
+                    b_u_i
+                    for i, b_u_i in enumerate(self.b_u)
+                    if i not in self.e[dir1] and i not in self.a
+                ],
+            )
+            cut_h_l = self.R_b_dir0.cut(self.h_l) * self.R_b_not_dir0.S()
+            cut_g_l = self.R_b_dir1.cut(self.g_l) * self.R_b_not_dir1.S()
+            cut_h_l_pss = (
+                self.R_b_dir0_pss.cut(self.h_l) * self.R_b_not_dir0_pss.S()
+            )
+            cut_g_l_pss = (
+                self.R_b_dir1_pss.cut(self.g_l) * self.R_b_not_dir1_pss.S()
+            )
+            self.S_F = self.R_b.S() - cut_h_l - cut_g_l
+            self.S_F_pss = self.R_b_pss.S() - cut_h_l_pss - cut_g_l_pss
             self.uncertainty_pss = max(
                 0, log2(self.S_F_pss) - log2(self.granularity)
             )
@@ -586,7 +688,11 @@ class Hop:
                 )
                 new_g_l = self.g_l
             new_R_b = Rectangle(new_b_l, new_b_u)
-            S_F_a = new_R_b.S() - new_R_b.cut(new_g_l) - new_R_b.cut(new_h_l)
+            S_F_a = (
+                new_R_b.S()
+                - new_R_b.cut(new_g_l, dir1)
+                - new_R_b.cut(new_h_l, dir0)
+            )
         # print("  expected area under the cut:", S_F_a, "(assuming
         # failed probe)")
         return S_F_a

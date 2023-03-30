@@ -171,7 +171,7 @@ class Rectangle:
                 )
         return Rectangle(intersection_l_vertex, intersection_u_vertex)
 
-    def cut(self, n):
+    def cut(self, n, direction=True):
         """
         Slice a rectangle/cube by a value n. Return the cardinality of
         the set of latice points for which the sum of its coordinates is
@@ -192,7 +192,9 @@ class Rectangle:
 
         min_val = sum(self.l_vertex)
         max_val = sum(self.u_vertex)
-        if self.is_empty or n == 0:
+        if not direction:
+            n = max_val - n + min_val
+        if self.is_empty or n <= 0:
             return 0
 
         if n > max_val:

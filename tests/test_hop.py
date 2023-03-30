@@ -138,9 +138,7 @@ def test_S_F_probe_fail_small():
     assert hop.S_F == 101 * 61
     amount = 51
     hop.probe(dir0, amount, True)
-    rect = Rectangle([0, 0], [101, 61])
-    cut = rect.cut(amount)
-    assert hop.S_F == 51 * 61 - cut
+    assert hop.S_F == 51 * 61
 
 
 def test_S_F_probe_fail_2():
