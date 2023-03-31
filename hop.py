@@ -330,14 +330,12 @@ class Hop:
             cut_g_l = self.R_b_dir1.cut(sum(self.c) - self.g_l, ">") * max(
                 self.R_b_not_dir1.S(), 1
             )
-            cut_h_l_pss = (
-                self.R_b_dir0_pss.cut(self.h_l, "<")
-                * self.R_b_not_dir0_pss.S()
+            cut_h_l_pss = self.R_b_dir0_pss.cut(self.h_l, "<") * max(
+                self.R_b_not_dir0_pss.S(), 1
             )
-            cut_g_l_pss = (
-                self.R_b_dir1_pss.cut(sum(self.c) - self.g_l, ">")
-                * self.R_b_not_dir1_pss.S()
-            )
+            cut_g_l_pss = self.R_b_dir1_pss.cut(
+                sum(self.c) - self.g_l, ">"
+            ) * max(self.R_b_not_dir1_pss.S(), 1)
             self.S_F = self.R_b.S() - cut_h_l - cut_g_l
             self.S_F_pss = self.R_b_pss.S() - cut_h_l_pss - cut_g_l_pss
             self.uncertainty_pss = max(
@@ -1475,6 +1473,54 @@ class Hop:
         R_b = Rectangle(
             [b_l_i + 1 for b_l_i in hop_info["b_l"]], hop_info["b_u"]
         )
+        R_b_dir0 = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i in self.e[dir0]
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i in self.e[dir0]
+            ],
+        )
+        R_b_not_dir0 = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i not in self.e[dir0]
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i not in self.e[dir0]
+            ],
+        )
+        R_b_dir1 = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i in self.e[dir1]
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i in self.e[dir1]
+            ],
+        )
+        R_b_not_dir1 = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i not in self.e[dir1]
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i not in self.e[dir1]
+            ],
+        )
         R_b_pss = Rectangle(
             [
                 b_l_i + 1
@@ -1485,6 +1531,54 @@ class Hop:
                 b_l_u
                 for i, b_l_u in enumerate(hop_info["b_u"])
                 if i not in self.a
+            ],
+        )
+        R_b_dir0_pss = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i in self.e[dir0] and i not in self.a
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i in self.e[dir0] and i not in self.a
+            ],
+        )
+        R_b_not_dir0_pss = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i not in self.e[dir0] and i not in self.a
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i not in self.e[dir0] and i not in self.a
+            ],
+        )
+        R_b_dir1_pss = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i in self.e[dir1] and i not in self.a
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i in self.e[dir1] and i not in self.a
+            ],
+        )
+        R_b_not_dir1_pss = Rectangle(
+            [
+                b_l_i + 1
+                for i, b_l_i in enumerate(hop_info["b_l"])
+                if i not in self.e[dir1] and i not in self.a
+            ],
+            [
+                b_u_i
+                for i, b_u_i in enumerate(hop_info["b_u"])
+                if i not in self.e[dir1] and i not in self.a
             ],
         )
         if not self.pss:
@@ -1502,16 +1596,20 @@ class Hop:
             )
             S_F = self.S_F_generic(R_h_l, R_h_u, R_g_l, R_g_u, R_b)
         else:
-            S_F = (
-                R_b.S()
-                - R_b.cut(sum(self.c) - hop_info["g_l"], ">")
-                - R_b.cut(hop_info["h_l"], "<")
+            cut_h_l = R_b_dir0.cut(hop_info["h_l"], "<") * max(
+                R_b_not_dir0.S(), 1
             )
-            S_F_pss = (
-                R_b_pss.S()
-                - R_b_pss.cut(sum(self.c) - hop_info["g_l"], ">")
-                - R_b_pss.cut(hop_info["h_l"], "<")
+            cut_g_l = R_b_dir1.cut(sum(self.c) - hop_info["g_l"], ">") * max(
+                R_b_not_dir1.S(), 1
             )
+            cut_h_l_pss = R_b_dir0_pss.cut(hop_info["h_l"], "<") * max(
+                R_b_not_dir0_pss.S(), 1
+            )
+            cut_g_l_pss = R_b_dir1_pss.cut(
+                sum(self.c) - hop_info["g_l"], ">"
+            ) * max(R_b_not_dir1_pss.S(), 1)
+            S_F = R_b.S() - cut_h_l - cut_g_l
+            S_F_pss = R_b_pss.S() - cut_h_l_pss - cut_g_l_pss
             hop_info["uncertainty_pss"] = max(
                 0, log2(S_F_pss) - log2(self.granularity)
             )
