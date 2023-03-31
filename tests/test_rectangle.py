@@ -15,6 +15,30 @@ def test_cut_2d():
     assert rectangle.cut(9) == 33
 
 
+def test_cut_leq():
+    "A cut of 4 of this 2-dimensional box should return 13"
+    rectangle = Rectangle([0, 0], [3, 3])
+    assert rectangle.cut(4, "<=") == 13
+
+
+def test_cut_geq():
+    "A cut of 4 of this 2-dimensional box should return 6"
+    rectangle = Rectangle([0, 0], [3, 3])
+    assert rectangle.cut(4, ">=") == 6
+
+
+def test_cut_greater():
+    "A cut of 4 of this 2-dimensional box should return 6"
+    rectangle = Rectangle([0, 0], [3, 3])
+    assert rectangle.cut(4, ">") == 3
+
+
+def test_cut_less():
+    "A cut of 4 of this 2-dimensional box should return 6"
+    rectangle = Rectangle([0, 0], [3, 3])
+    assert rectangle.cut(4, "<") == 10
+
+
 def test_cut_4d():
     "A cut of 12 of this 3-dimensional box should return all 4**4 -1 = 255"
     rectangle = Rectangle([0, 0, 0, 0], [3, 3, 3, 3])

@@ -279,7 +279,7 @@ def test_generate_hop():
             True,  # pss
             True,  # bs
             {
-                "num_probes": 42,
+                "num_probes": 23,
                 "b_l": [-1, -1, -1],
                 "b_u": [2017461, 2017461, 2017461],
                 "h_l": 2591125,
@@ -347,7 +347,7 @@ def test_generate_hop():
             True,  # pss
             False,  # bs
             {
-                "num_probes": 44,
+                "num_probes": 21,
                 "b_l": [-1, -1, -1],
                 "b_u": [2017461, 2017461, 2017461],
                 "h_l": 2591125,

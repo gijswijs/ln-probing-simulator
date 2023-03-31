@@ -324,13 +324,19 @@ class Hop:
                     if i not in self.e[dir1] and i not in self.a
                 ],
             )
-            cut_h_l = self.R_b_dir0.cut(self.h_l) * self.R_b_not_dir0.S()
-            cut_g_l = self.R_b_dir1.cut(self.g_l) * self.R_b_not_dir1.S()
+            cut_h_l = self.R_b_dir0.cut(self.h_l, "<") * max(
+                self.R_b_not_dir0.S(), 1
+            )
+            cut_g_l = self.R_b_dir1.cut(sum(self.c) - self.g_l, ">") * max(
+                self.R_b_not_dir1.S(), 1
+            )
             cut_h_l_pss = (
-                self.R_b_dir0_pss.cut(self.h_l) * self.R_b_not_dir0_pss.S()
+                self.R_b_dir0_pss.cut(self.h_l, "<")
+                * self.R_b_not_dir0_pss.S()
             )
             cut_g_l_pss = (
-                self.R_b_dir1_pss.cut(self.g_l) * self.R_b_not_dir1_pss.S()
+                self.R_b_dir1_pss.cut(sum(self.c) - self.g_l, ">")
+                * self.R_b_not_dir1_pss.S()
             )
             self.S_F = self.R_b.S() - cut_h_l - cut_g_l
             self.S_F_pss = self.R_b_pss.S() - cut_h_l_pss - cut_g_l_pss
@@ -690,8 +696,8 @@ class Hop:
             new_R_b = Rectangle(new_b_l, new_b_u)
             S_F_a = (
                 new_R_b.S()
-                - new_R_b.cut(new_g_l, dir1)
-                - new_R_b.cut(new_h_l, dir0)
+                - new_R_b.cut(sum(self.c) - new_g_l, ">")
+                - new_R_b.cut(new_h_l, "<")
             )
         # print("  expected area under the cut:", S_F_a, "(assuming
         # failed probe)")
@@ -1496,11 +1502,15 @@ class Hop:
             )
             S_F = self.S_F_generic(R_h_l, R_h_u, R_g_l, R_g_u, R_b)
         else:
-            S_F = R_b.S() - R_b.cut(hop_info["g_l"]) - R_b.cut(hop_info["h_l"])
+            S_F = (
+                R_b.S()
+                - R_b.cut(sum(self.c) - hop_info["g_l"], ">")
+                - R_b.cut(hop_info["h_l"], "<")
+            )
             S_F_pss = (
                 R_b_pss.S()
-                - R_b_pss.cut(hop_info["g_l"])
-                - R_b_pss.cut(hop_info["h_l"])
+                - R_b_pss.cut(sum(self.c) - hop_info["g_l"], ">")
+                - R_b_pss.cut(hop_info["h_l"], "<")
             )
             hop_info["uncertainty_pss"] = max(
                 0, log2(S_F_pss) - log2(self.granularity)

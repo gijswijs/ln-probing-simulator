@@ -96,9 +96,9 @@ def test_probe_hop_with_multiple_channels_pss():
     assert hop.h == 188000
     assert hop.g_u == 90000
     assert hop.g_l == -1
-    assert hop.uncertainty == 61.03726544366254
+    assert hop.uncertainty == 61.03751921524554
     # assert hop.S_F == 14_400_988_024_500_260_001 1.3e+19
-    assert hop.S_F == 2_366_179_851_025_390_001
+    assert hop.S_F == 2_366_596_101_171_202_501
     assert hop.b_l == [-1, -1, -1, 9999]
     assert hop.b_u == [40000, 50000, 80000, 100000]
 
@@ -154,7 +154,7 @@ def test_S_F_probe_success():
     assert hop.S_F == 100001 * 60001
     amount = 20000
     hop.probe(dir0, amount, True)
-    assert hop.S_F == 100001 * 60001 - 20000 * 10000
+    assert hop.S_F == 100001 * 60001 - 19999 * 10000
 
 
 def test_S_F_dir1_probe_success():
@@ -162,7 +162,7 @@ def test_S_F_dir1_probe_success():
     assert hop.S_F == 100001 * 60001
     amount = 20000
     hop.probe(dir1, amount, True)
-    assert hop.S_F == 100001 * 60001 - 20000 * 10000
+    assert hop.S_F == 100001 * 60001 - 19999 * 10000
 
 
 def test_S_F_dir1_probe_fail():
@@ -170,7 +170,7 @@ def test_S_F_dir1_probe_fail():
     assert hop.S_F == 100001 * 60001
     amount = 140001
     hop.probe(dir1, amount, True)
-    assert hop.S_F == 100001 * 60001 - 20000 * 10000
+    assert hop.S_F == 100001 * 60001 - 19999 * 10000
 
 
 @pytest.mark.parametrize(

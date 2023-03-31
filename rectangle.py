@@ -171,11 +171,12 @@ class Rectangle:
                 )
         return Rectangle(intersection_l_vertex, intersection_u_vertex)
 
-    def cut(self, n, direction=True):
+    def cut(self, n, inequality="<"):
         """
         Slice a rectangle/cube by a value n. Return the cardinality of
-        the set of latice points for which the sum of its coordinates is
-        less than n.
+        the set of latice points for which the sum of its coordinates
+        follows the inequality given. default inequality sum(x_i, y_i,
+        z_i) < n.
         """
 
         def pyramid_latice_points(x, dimensions):
@@ -190,15 +191,26 @@ class Rectangle:
             # x is the column to pick in Pascal's triangle
             return comb(n, x)
 
-        min_val = sum(self.l_vertex)
-        max_val = sum(self.u_vertex)
-        if not direction:
-            n = max_val - n + min_val
-        if self.is_empty or n <= 0:
+        if self.is_empty:
             return 0
 
-        if n > max_val:
+        min_val = sum(self.l_vertex)
+        max_val = sum(self.u_vertex)
+
+        if inequality in (">", "<="):
+            n += 1
+
+        if n <= 0 and inequality in ("<", "<="):
+            return 0
+
+        if n <= 0 and inequality in (">", ">="):
             return self.S()
+
+        if n > max_val and inequality in ("<", "<="):
+            return self.S()
+
+        if n > max_val and inequality in (">", ">="):
+            return 0
 
         widths = [
             coord_u - coord_l
@@ -207,7 +219,7 @@ class Rectangle:
 
         # since we work with widths, we translated the rectangle
         # l_vertex to the origin. We adjust n for that
-        n = max(n - min_val, 0)
+        n = max(n - min_val, -1)
 
         # pyramids that we should subtract
         pyramids = list(filter(lambda x: x + 1 < n, widths))
@@ -229,7 +241,11 @@ class Rectangle:
             0,
         )
 
-        return pyramid_latice_points(n - 1, dimensions) - corr + overlap_corr
+        cut = pyramid_latice_points(n - 1, dimensions) - corr + overlap_corr
+        if inequality in (">=", ">"):
+            return self.S() - cut
+
+        return cut
 
 
 class ProbingRectangle(Rectangle):
