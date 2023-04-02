@@ -242,9 +242,17 @@ class Rectangle:
         )
 
         cut = pyramid_latice_points(n - 1, dimensions) - corr + overlap_corr
+
+        # This method should not return self.S(), since a channel always
+        # has a balance. So if the cut is equal to self.S() the balance
+        # is completely oneside.
         if inequality in (">=", ">"):
+            if cut == 0:
+                cut = 1
             return self.S() - cut
 
+        if cut == self.S():
+            cut = -1
         return cut
 
 
