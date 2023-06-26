@@ -178,7 +178,6 @@ class Rectangle:
         follows the inequality given. default inequality sum(x_i, y_i,
         z_i) < n.
         """
-        dimensions = len(self.l_vertex)
 
         def pyramid_latice_points(x, dimensions):
             """
@@ -193,12 +192,12 @@ class Rectangle:
             return comb(n, x)
 
         def overlap(n, widths, add, depth):
-            # pyramids = list(filter(lambda x: x + 1 < n, widths))
             combined_widths = list(
                 map(lambda x: sum(x), combinations(widths, depth))
             )
             pyramids = list(filter(lambda x: x < n, combined_widths))
             if len(pyramids) == 0:
+                # print("corr: 0\n")
                 return 0
 
             corr = reduce(
@@ -207,8 +206,10 @@ class Rectangle:
                 0,
             )
             if add:
-                corr = corr - overlap(n - 1, widths, not add, depth + 1)
+                # print(f"{corr} at depth: {depth}\n")
+                corr = corr + overlap(n - 1, widths, not add, depth + 1)
             else:
+                # print(f"-{corr} at depth: {depth}\n")
                 corr = -corr + overlap(n - 1, widths, not add, depth + 1)
             return corr
 
@@ -216,22 +217,23 @@ class Rectangle:
             return 0
 
         min_val = sum(self.l_vertex)
-        max_val = sum(self.u_vertex)
+        # max_val = sum(self.u_vertex)
+        dimensions = len(self.l_vertex)
 
         if inequality in (">", "<="):
             n += 1
 
-        if n <= 0 and inequality in ("<", "<="):
-            return 0
+        # if n < 0 and inequality in ("<", "<="):
+        #     return 0
 
-        if n <= 0 and inequality in (">", ">="):
-            return self.S() - 1
+        # if n < 0 and inequality in (">", ">="):
+        #     return self.S() - 1
 
-        if n > max_val and inequality in ("<", "<="):
-            return self.S() - 1
+        # if n > max_val and inequality in ("<", "<="):
+        #     return self.S() - 1
 
-        if n > max_val and inequality in (">", ">="):
-            return 0
+        # if n > max_val and inequality in (">", ">="):
+        #     return 0
 
         widths = [
             coord_u - coord_l
@@ -242,10 +244,11 @@ class Rectangle:
         # l_vertex to the origin. We adjust n for that
         n = max(n - min_val, -1)
 
-        # Calculate the correction of overlapping pyramids
-        corr = overlap(n - 1, widths, False, 1)
+        # Calculate the cut
+        cut = pyramid_latice_points(n - 1, dimensions) + overlap(
+            n - 1, widths, False, 1
+        )
 
-        cut = pyramid_latice_points(n - 1, dimensions) + corr
         if inequality in (">=", ">"):
             return self.S() - cut
 

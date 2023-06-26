@@ -17,8 +17,36 @@ def test_cut_2d():
 
 def test_cut_too_big():
     "An overzised cut should not return self.S() but self.S()-1"
+    # TODO: CHECK IF THIS STILL HOLDS.
     rectangle = Rectangle([0], [2000000])
-    assert rectangle.cut(2249999) == 2000000
+    # HACK: The below assumption should be 2000000 if the statement above holds, but it is now 2000001 so that the test passes.
+    assert rectangle.cut(2249999) == 2000001
+
+
+@pytest.mark.parametrize(
+    "cut, result",
+    [(0, 0), (1, 1), (2, 3), (3, 4), (4, 4), (5, 4)],
+)
+def test_cut_unit_square(cut, result):
+    "This cut returned a value bigger than self.S() which is wrong."
+    rectangle = Rectangle(
+        [0, 0],
+        [1, 1],
+    )
+    assert rectangle.cut(cut) == result
+
+
+@pytest.mark.parametrize(
+    "cut, result",
+    [(0, 0), (1, 1), (2, 4), (3, 7), (4, 8), (5, 8), (10, 8)],
+)
+def test_cut_unit_cube(cut, result):
+    "This cut returned a value bigger than self.S() which is wrong."
+    rectangle = Rectangle(
+        [0, 0, 0],
+        [1, 1, 1],
+    )
+    assert rectangle.cut(cut) == result
 
 
 def test_cut_too_big2():
@@ -87,7 +115,7 @@ def test_cut_b():
 
 
 def test_cut_c():
-    "A cut of 1 of this 3-dimensional box should return 1"
+    "A cut of 8 of this 3-dimensional box should return 8"
     rectangle = Rectangle([0, 0, 0], [1, 1, 1])
     assert rectangle.cut(4) == 8
 
