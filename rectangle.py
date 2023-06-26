@@ -178,6 +178,7 @@ class Rectangle:
         follows the inequality given. default inequality sum(x_i, y_i,
         z_i) < n.
         """
+        dimensions = len(self.l_vertex)
 
         def pyramid_latice_points(x, dimensions):
             """
@@ -190,6 +191,26 @@ class Rectangle:
             n = dimensions + x
             # x is the column to pick in Pascal's triangle
             return comb(n, x)
+
+        def overlap(n, widths, add, depth):
+            # pyramids = list(filter(lambda x: x + 1 < n, widths))
+            combined_widths = list(
+                map(lambda x: sum(x), combinations(widths, depth))
+            )
+            pyramids = list(filter(lambda x: x < n, combined_widths))
+            if len(pyramids) == 0:
+                return 0
+
+            corr = reduce(
+                lambda acc, val: acc + pyramid_latice_points(val, dimensions),
+                map(lambda x: n - x - 1, pyramids),
+                0,
+            )
+            if add:
+                corr = corr - overlap(n - 1, widths, not add, depth + 1)
+            else:
+                corr = -corr + overlap(n - 1, widths, not add, depth + 1)
+            return corr
 
         if self.is_empty:
             return 0
@@ -204,10 +225,10 @@ class Rectangle:
             return 0
 
         if n <= 0 and inequality in (">", ">="):
-            return self.S()
+            return self.S() - 1
 
         if n > max_val and inequality in ("<", "<="):
-            return self.S()
+            return self.S() - 1
 
         if n > max_val and inequality in (">", ">="):
             return 0
@@ -221,38 +242,13 @@ class Rectangle:
         # l_vertex to the origin. We adjust n for that
         n = max(n - min_val, -1)
 
-        # pyramids that we should subtract
-        pyramids = list(filter(lambda x: x + 1 < n, widths))
+        # Calculate the correction of overlapping pyramids
+        corr = overlap(n - 1, widths, False, 1)
 
-        # substracted pyramids that overlap should be added
-        overlap_pyramids = list(
-            filter(lambda x: x[0] + x[1] + 2 < n, combinations(widths, 2))
-        )
-        dimensions = len(self.l_vertex)
-
-        corr = reduce(
-            lambda acc, val: acc + pyramid_latice_points(val, dimensions),
-            map(lambda x: n - x - 2, pyramids),
-            0,
-        )
-        overlap_corr = reduce(
-            lambda acc, val: acc + pyramid_latice_points(val, dimensions),
-            map(lambda x: n - x[0] - x[1] - 3, overlap_pyramids),
-            0,
-        )
-
-        cut = pyramid_latice_points(n - 1, dimensions) - corr + overlap_corr
-
-        # This method should not return self.S(), since a channel always
-        # has a balance. So if the cut is equal to self.S() the balance
-        # is completely oneside.
+        cut = pyramid_latice_points(n - 1, dimensions) + corr
         if inequality in (">=", ">"):
-            if cut == 0:
-                cut = 1
             return self.S() - cut
 
-        if cut == self.S():
-            cut = -1
         return cut
 
 

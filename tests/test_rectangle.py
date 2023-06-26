@@ -10,9 +10,32 @@ def test_rectangle():
 
 
 def test_cut_2d():
-    "A cut of 9 of this 3-dimensional box should return 33"
+    "A cut of 9 of this 2-dimensional box should return 33"
     rectangle = Rectangle([0, 0], [5, 5])
     assert rectangle.cut(9) == 33
+
+
+def test_cut_too_big():
+    "An overzised cut should not return self.S() but self.S()-1"
+    rectangle = Rectangle([0], [2000000])
+    assert rectangle.cut(2249999) == 2000000
+
+
+def test_cut_too_big2():
+    "This cut returned a value bigger than self.S() which is wrong."
+    rectangle = Rectangle(
+        [0, 0, 0, 0, 0, 0, 0],
+        [
+            15_000_000,
+            231_922,
+            2_000_000,
+            4_000_000,
+            15_000_000,
+            2_000_000,
+            1_000_000,
+        ],
+    )
+    assert rectangle.cut(19_615_960) < rectangle.S()
 
 
 def test_cut_leq():
@@ -40,9 +63,15 @@ def test_cut_less():
 
 
 def test_cut_4d():
-    "A cut of 12 of this 3-dimensional box should return all 4**4 -1 = 255"
+    "A cut of 12 (4 * 3) of this 4-dimensional box should return all 4**4 -1 = 255"
     rectangle = Rectangle([0, 0, 0, 0], [3, 3, 3, 3])
     assert rectangle.cut(12) == 255
+
+
+def test_cut_3d():
+    "A cut of 9 (3 * 3) of this 3-dimensional box should return all 4**3 -1 = 63"
+    rectangle = Rectangle([0, 0, 0], [3, 3, 3])
+    assert rectangle.cut(9) == 63
 
 
 def test_cut_a():
