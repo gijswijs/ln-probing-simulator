@@ -168,6 +168,7 @@ def probe_hop_without_jamming(hop: Hop, bs, pss=False):
         amount = hop.next_a(chosen_dir, bs, jamming=False, pss=pss)
         hop.probe(chosen_dir, amount, pss)
         num_probes += 1
+        print("Number of probes" + str(num_probes), end="\r")
     return num_probes
 
 

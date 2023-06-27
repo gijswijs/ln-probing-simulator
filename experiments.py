@@ -372,9 +372,11 @@ def experiment_3(
     manager = Manager()
     gains_results = manager.list([0 for _ in range(4)])
     speed_results = manager.list([0 for _ in range(8)])
-    for i, pss in enumerate((False, True)):
+    # Total number of experiments: 2 (pss on/of) * 2 (remote_probing
+    # on/off) * 2 (binary search on/off) = 8
+    for i, pss in enumerate((True, False)):
         for j, remote_probing in enumerate((False, True)):
-            for k, bs in enumerate((False, True)):
+            for k, bs in enumerate((True, False)):
                 pos = 4 * i + 2 * j + k
                 proc = Process(
                     target=run_and_store_result,
@@ -393,8 +395,11 @@ def experiment_3(
                     ),
                 )
                 procs.append(proc)
-                proc.start()
+                # Uncomment line below to run everything parallel.
+                # proc.start()
     for proc in procs:
+        # Uncomment line below to run everything in series.
+        proc.start()
         proc.join()
     targets_source = "snapshot" if prober is not None else "synthetic"
     x_label = "\nNumber of channels in target hops\n"
@@ -433,6 +438,9 @@ def run_one_instance_of_experiment(
     Run experiment for all numbers of channels with one parameter
     set. Yields two lines on two graphs: gains and speeds.
     """
+    print(
+        f"Starting experiment instance with these arguments:\n- jamming: {jamming}\n- remote probing: {remote_probing}\n- bs: {bs}\n- pss: {pss}\n- num_channels_in_target_hops: {NUM_CHANNELS_IN_TARGET_HOPS}\n- num_runs_per_experiment: {num_runs_per_experiment}\n- num_target_hops: {num_target_hops}\n"
+    )
     gains = [0 for _ in range(len(NUM_CHANNELS_IN_TARGET_HOPS))]
     speeds = [0 for _ in range(len(NUM_CHANNELS_IN_TARGET_HOPS))]
     for i, num_channels in enumerate(NUM_CHANNELS_IN_TARGET_HOPS):
@@ -472,16 +480,34 @@ def run_one_instance_of_experiment(
             # "Generated", len(target_hops), "target hops with",
             # num_channels, "channels.")
             if remote_probing:
+                print(
+                    f"Experiment {num_experiment}: remote probing hops with {num_channels} channels",
+                    end="\r",
+                )
                 assert prober is not None
                 gain, speed = prober.probe_hops(
                     target_hops_node_pairs, bs=bs, jamming=jamming, pss=pss
                 )
             else:
+                print(
+                    f"Experiment {num_experiment}: direct probing hops with {num_channels} channels",
+                    end="\r",
+                )
                 gain, speed = probe_hops_direct(
                     target_hops, bs=bs, jamming=jamming, pss=pss
                 )
             gain_list.append(gain)
             speed_list.append(speed)
+            if remote_probing:
+                print(
+                    f"Finished experiment {num_experiment}: remote probing hops with {num_channels} channels",
+                    end="\r",
+                )
+            else:
+                print(
+                    f"Finished experiment {num_experiment}: direct probing hops with {num_channels} channels",
+                    end="\r",
+                )
         gains[i] = gain_list
         speeds[i] = speed_list
     # prepare data for information gains plot

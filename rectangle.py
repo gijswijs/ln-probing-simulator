@@ -217,23 +217,23 @@ class Rectangle:
             return 0
 
         min_val = sum(self.l_vertex)
-        # max_val = sum(self.u_vertex)
+        max_val = sum(self.u_vertex)
         dimensions = len(self.l_vertex)
 
         if inequality in (">", "<="):
             n += 1
 
-        # if n < 0 and inequality in ("<", "<="):
-        #     return 0
+        if n <= 0 and inequality in ("<", "<="):
+            return 0
 
-        # if n < 0 and inequality in (">", ">="):
-        #     return self.S() - 1
+        if n <= 0 and inequality in (">", ">="):
+            return self.S() - 1
 
-        # if n > max_val and inequality in ("<", "<="):
-        #     return self.S() - 1
+        if n >= max_val and inequality in ("<", "<="):
+            return self.S() - 1
 
-        # if n > max_val and inequality in (">", ">="):
-        #     return 0
+        if n >= max_val and inequality in (">", ">="):
+            return 0
 
         widths = [
             coord_u - coord_l

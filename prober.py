@@ -35,6 +35,7 @@ Luxembourg SPDX-License-Identifier: MIT
 
 
 import json
+import sys
 from random import random, shuffle
 
 import networkx as nx
@@ -85,6 +86,7 @@ class Prober:
                 )
             self.psshopgraph = ln_hopgraph_to_pss_hopgraph(self.lnhopgraph)
         else:
+            print("Init prober with GML files")
             self.snapshot_date = snapshot_filename[0][
                 -len("yyyy-mm-dd.gml") : -len(".gml")
             ]
@@ -120,10 +122,20 @@ class Prober:
         nx.write_gml(G, filename, stringizer=stringify)
 
     def import_graph(self, filename, pss=False):
+        print(f"\nRead file {filename}")
+
         def destringify_factory(pss):
             def destringify(hop):
                 if hop.startswith('{"c":'):
                     hop_dict = json.loads(hop)
+                    sys.stdout.write(
+                        "\rCreate hop with capacities: "
+                        + (
+                            ",".join(str(x) for x in hop_dict["c"])
+                            + (" " * 60)
+                        )[:60]
+                    )
+                    sys.stdout.flush()
                     return Hop(
                         hop_dict["c"],
                         hop_dict["e"][str(dir0).lower()],
@@ -133,6 +145,8 @@ class Prober:
                         pss=pss,
                     )
                 else:
+                    sys.stdout.write(f"\rCreating node {hop}")
+                    sys.stdout.flush()
                     return hop
 
             return destringify

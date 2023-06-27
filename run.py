@@ -36,6 +36,9 @@ from prober import Prober
 
 SNAPSHOT_FILENAME = "./snapshots/listchannels-2021-12-09.json"
 DATESTRING = "2021-12-09"
+# DATESTRING = "2022-11-25"
+GML_FOLDER = "./graph_exports/"
+# GML_FOLDER = "./tests/data/"
 ENTRY_CHANNEL_CAPACITY = 10 * 100 * 1000 * 1000
 # top 10 nodes by degree as per https://1ml.com/node?order=channelcount
 ENTRY_NODES = [
@@ -106,7 +109,7 @@ def main():
         "--use_gml",
         dest="use_gml",
         action="store_true",
-        help="Use GML files. Can't ge used in conjunction with --use_snapshot",
+        help="Use GML files. Can't be used in conjunction with --use_snapshot",
     )
     # parser.add_argument("--jamming", dest="jamming",
     # action="store_true", help="Use jamming after h and g are known?")
@@ -132,13 +135,16 @@ def main():
         )
     else:
         filename = [
-            "./graph_exports/hopgraph-" + DATESTRING + ".gml",
-            "./graph_exports/psshopgraph-" + DATESTRING + ".gml",
+            GML_FOLDER + "hopgraph-" + DATESTRING + ".gml",
+            GML_FOLDER + "psshopgraph-" + DATESTRING + ".gml",
         ]
+        print("Creating prober with gml files.")
         prober = Prober(filename, "PROBER", None, None, gml_file=True)
 
     if prober:
+        print("\nStarting graph analysis.")
         prober.analyze_graph()
+        print("Finished graph analysis.")
     if args.export:
         prober.export_graph(
             prober.lnhopgraph,
@@ -149,6 +155,7 @@ def main():
             "./graph_exports/psshopgraph-" + DATESTRING + ".gml",
         )
     else:
+        print("Starting PSS experiment.")
         experiment_3(
             prober,
             args.num_target_hops,
@@ -156,6 +163,7 @@ def main():
             args.min_num_channels,
             args.max_num_channels,
         )
+        print("Finished PSS experiment.")
     # experiment_2(args.num_target_hops, args.num_runs_per_experiment)
 
 

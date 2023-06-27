@@ -41,8 +41,8 @@
             "request": "launch",
             "program": "${cwd}/run.py",
             "args": [
-                "--num_target_hops=5",
-                "--num_runs_per_experiment=2",
+                "--num_target_hops=1",
+                "--num_runs_per_experiment=1",
                 "--min_num_channels=1",
                 "--max_num_channels=3",
                 "--use_gml",
