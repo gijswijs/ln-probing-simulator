@@ -35,12 +35,10 @@ Luxembourg SPDX-License-Identifier: MIT
 
 import operator
 from functools import reduce
-from itertools import combinations
-from math import comb
 
-import numpy as np
-import polytope as pc
-from numpy.linalg import norm
+# from itertools import combinations
+# from math import comb
+from pprint import pprint
 
 
 class Rectangle:
@@ -256,59 +254,78 @@ class Rectangle:
         # if inequality in (">=", ">"):
         #     return self.S() - cut
 
-        # Count the number of dimensions.
+        if self.is_empty:
+            return 0
+
+        min_val = sum(self.l_vertex)
+        max_val = sum(self.u_vertex)
         dimensions = len(self.l_vertex)
 
-        # We wil describe the hyper-rectangle as a convex polytope,
-        # using H-representation.
+        if inequality in (">", "<="):
+            n += 1
 
-        # Create an identity array and its element-wise, numerical
-        # negative. These are the vectors of the `m x n` matrix of the
-        # H-representation, representing the facets of the
-        # hyper-rectangle.
-        id_arr = np.identity(dimensions)
-        A = np.concatenate((id_arr, np.negative(id_arr)))
+        # if n <= 0 and inequality in ("<", "<="):
+        #     return 0
 
-        # Add the vector to the `m x n` matrix, representing the cut,
-        # taking into account if we want everything below or above the
-        # cut.
-        if inequality in (">", ">="):
-            A = np.append(A, [[-1.0] * dimensions], axis=0)
-        else:
-            A = np.append(A, [[1.0] * dimensions], axis=0)
+        # if n <= 0 and inequality in (">", ">="):
+        #     return self.S() - 1
 
-        # The polytope is inclusive (the lattice points in the facets
-        # count towards the sum of total points contained). So for the
-        # inequalities `<` and `>` we move the cut-off by one.
-        # if inequality in (">"):
-        #     n += 1
+        # if n >= max_val and inequality in ("<", "<="):
+        #     return self.S() - 1
 
-        # if inequality in ("<"):
-        #     n -= 1
+        # if n >= max_val and inequality in (">", ">="):
+        #     return 0
 
-        # Create the `m x 1` matrix for the  H-representation. Since the
-        # cut is a vector of ones, the distance from the origin is
-        # Euclidian Norm (L2) of the vector where each scalar value is
-        # `n` divided by the number of dimensions.
-        b = np.concatenate(
-            (
-                np.array(self.u_vertex).astype(float),
-                np.array(self.l_vertex).astype(float),
-            )
-        )
-        v = np.array([n / dimensions] * dimensions)
-        b = np.append(b, norm(v, 2))
+        widths = [
+            coord_u - coord_l
+            for coord_l, coord_u in zip(self.l_vertex, self.u_vertex)
+        ]
 
-        # Create the polytope
-        p = pc.Polytope(A, b)
-        p = pc.polytope.reduce(p)
+        # since we work with widths, we translated the rectangle
+        # l_vertex to the origin. We adjust n for that
+        n = max(n - min_val, -1)
 
-        if p.volume > 0.0:
-            cut = pc.polytope.enumerate_integral_points(p)
-            # Return the number of lattice points.
-            return cut.shape[1]
+        points = []
 
-        return 0
+        for i in range(n):
+            if i == 0:
+                points.append((0,) * dimensions)
+            else:
+                new_points = []
+                for point in points:
+                    # Check whether we are at a vertex
+                    at_vertex = False
+                    coordinate_zero_or_width = list(
+                        map(
+                            lambda i: point[i] == 0 or point[i] == widths[i],
+                            range(len(point)),
+                        )
+                    )
+                    if all(coordinate_zero_or_width):
+                        at_vertex = True
+
+                    if at_vertex:
+                        # Split points if at a vertex
+                        for j in range(len(point)):
+                            if point[j] == 0:
+                                new_point = point[:j] + (1,) + point[j + 1 :]
+                                new_points.append(new_point)
+                    else:
+                        # Points along edges should be pushed along
+                        for j in range(len(point)):
+                            if point[j] != 0 and point[j] != widths[j]:
+                                new_point = (
+                                    point[:j]
+                                    + (point[j] + 1,)
+                                    + point[j + 1 :]
+                                )
+                                new_points.append(new_point)
+                points = new_points
+
+            # Merge duplicate points
+            points = list(set(points))
+            pprint(points)
+        return len(points)
 
 
 class ProbingRectangle(Rectangle):

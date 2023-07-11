@@ -3,10 +3,22 @@ import pytest
 from rectangle import Rectangle
 
 
-def test_rectangle():
-    "Triangle with width 6, depth 2, height 4 should have a volume of 7 * 3 * 5, since all boundaries are inclusive"
+def test_box():
+    "Cube with width 6, depth 2, height 4 should have a volume of 7 * 3 * 5, since all boundaries are inclusive"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
     assert rectangle.S() == 7 * 3 * 5
+
+
+def test_line():
+    "Test for whether the hyperplane cuts the edges at correct points"
+    rectangle = Rectangle([0], [6])
+    rectangle.cut(5)
+
+
+def test_rectangle():
+    "Test for whether the hyperplane cuts the edges at correct points"
+    rectangle = Rectangle([0, 0, 0], [4, 2, 13])
+    rectangle.cut(20)
 
 
 def test_cut_2d():
