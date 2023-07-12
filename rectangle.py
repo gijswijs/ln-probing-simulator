@@ -34,13 +34,12 @@ Luxembourg SPDX-License-Identifier: MIT
 """
 
 import operator
+import subprocess
+import tempfile
 from functools import reduce
-from itertools import combinations
 from math import comb
 
 import numpy as np
-import polytope as pc
-from numpy.linalg import norm
 
 
 class Rectangle:
@@ -182,79 +181,28 @@ class Rectangle:
         follows the inequality given. default inequality sum(x_i, y_i,
         z_i) < n.
         """
+        if self.is_empty:
+            return 0
 
-        # def pyramid_latice_points(x, dimensions):
-        #     """
-        #     The latice points in our pyramids follow Pascal's triangle
-        #     of binomial coefficients
-        #     """
-        #     if x < 0:
-        #         return 0
-        #     # calculate the row to pick in Pascal's triangle
-        #     n = dimensions + x
-        #     # x is the column to pick in Pascal's triangle
-        #     return comb(n, x)
+        # The polytope is inclusive (the lattice points in the facets
+        # count towards the sum of total points contained). So for the
+        # inequalities `<` and `>` we move the cut-off by one.
+        if inequality in (">"):
+            n += 1
 
-        # def overlap(n, widths, add, depth):
-        #     combined_widths = list(
-        #         map(lambda x: sum(x), combinations(widths, depth))
-        #     )
-        #     pyramids = list(filter(lambda x: x < n, combined_widths))
-        #     if len(pyramids) == 0:
-        #         # print("corr: 0\n")
-        #         return 0
+        if inequality in ("<"):
+            n -= 1
 
-        #     corr = reduce(
-        #         lambda acc, val: acc + pyramid_latice_points(val, dimensions),
-        #         map(lambda x: n - x - 1, pyramids),
-        #         0,
-        #     )
-        #     if add:
-        #         # print(f"{corr} at depth: {depth}\n")
-        #         corr = corr + overlap(n - 1, widths, not add, depth + 1)
-        #     else:
-        #         # print(f"-{corr} at depth: {depth}\n")
-        #         corr = -corr + overlap(n - 1, widths, not add, depth + 1)
-        #     return corr
+        max_val = sum(self.u_vertex)
 
-        # if self.is_empty:
+        # if n <= 0 and inequality in ("<"):
         #     return 0
 
-        # min_val = sum(self.l_vertex)
-        # max_val = sum(self.u_vertex)
-        # dimensions = len(self.l_vertex)
+        # if n <= 0 and inequality in (">"):
+        #     return self.S()
 
-        # if inequality in (">", "<="):
-        #     n += 1
-
-        # if n <= 0 and inequality in ("<", "<="):
-        #     return 0
-
-        # if n <= 0 and inequality in (">", ">="):
-        #     return self.S() - 1
-
-        # if n >= max_val and inequality in ("<", "<="):
-        #     return self.S() - 1
-
-        # if n >= max_val and inequality in (">", ">="):
-        #     return 0
-
-        # widths = [
-        #     coord_u - coord_l
-        #     for coord_l, coord_u in zip(self.l_vertex, self.u_vertex)
-        # ]
-
-        # # since we work with widths, we translated the rectangle
-        # # l_vertex to the origin. We adjust n for that
-        # n = max(n - min_val, -1)
-
-        # # Calculate the cut
-        # cut = pyramid_latice_points(n - 1, dimensions) + overlap(
-        #     n - 1, widths, False, 1
-        # )
-
-        # if inequality in (">=", ">"):
-        #     return self.S() - cut
+        if n >= max_val and inequality in ("<"):
+            return self.S()
 
         # Count the number of dimensions.
         dimensions = len(self.l_vertex)
@@ -266,49 +214,66 @@ class Rectangle:
         # negative. These are the vectors of the `m x n` matrix of the
         # H-representation, representing the facets of the
         # hyper-rectangle.
-        id_arr = np.identity(dimensions)
+        id_arr = np.identity(dimensions, int)
         A = np.concatenate((id_arr, np.negative(id_arr)))
 
         # Add the vector to the `m x n` matrix, representing the cut,
         # taking into account if we want everything below or above the
         # cut.
         if inequality in (">", ">="):
-            A = np.append(A, [[-1.0] * dimensions], axis=0)
+            A = np.append(A, [[1] * dimensions], axis=0)
         else:
-            A = np.append(A, [[1.0] * dimensions], axis=0)
+            A = np.append(A, [[-1] * dimensions], axis=0)
 
-        # The polytope is inclusive (the lattice points in the facets
-        # count towards the sum of total points contained). So for the
-        # inequalities `<` and `>` we move the cut-off by one.
-        # if inequality in (">"):
-        #     n += 1
+        if inequality in (">", ">="):
+            n = -n
 
-        # if inequality in ("<"):
-        #     n -= 1
-
-        # Create the `m x 1` matrix for the  H-representation. Since the
-        # cut is a vector of ones, the distance from the origin is
-        # Euclidian Norm (L2) of the vector where each scalar value is
-        # `n` divided by the number of dimensions.
+        # Create the `m x 1` matrix for the  H-representation.
         b = np.concatenate(
             (
-                np.array(self.u_vertex).astype(float),
-                np.array(self.l_vertex).astype(float),
+                np.array([-x for x in self.l_vertex]),
+                np.array(self.u_vertex),
             )
         )
-        v = np.array([n / dimensions] * dimensions)
-        b = np.append(b, norm(v, 2))
+        b = np.append(b, [n])
 
-        # Create the polytope
-        p = pc.Polytope(A, b)
-        p = pc.polytope.reduce(p)
+        # Output A and b to file using LattE h-representation
+        b = np.atleast_2d(b).T
+        output = np.concatenate((b, A), axis=1)
 
-        if p.volume > 0.0:
-            cut = pc.polytope.enumerate_integral_points(p)
-            # Return the number of lattice points.
-            return cut.shape[1]
+        latte_file = tempfile.NamedTemporaryFile(mode="w+t", delete=False)
+        latte_file.writelines(
+            " ".join([str(d) for d in np.shape(output)]) + "\n"
+        )
+        for row in output:
+            latte_file.writelines(" ".join([str(x) for x in row]) + "\n")
 
-        return 0
+        latte_file.flush()
+
+        # Run LattE and capture output
+        result = subprocess.run(
+            ["../latte-distro/dest/bin/count", latte_file.name],
+            capture_output=True,
+            text=True,
+        )
+
+        # Close temporary file. This will automatically delete it.
+        latte_file.close()
+
+        if (
+            result.returncode != 0
+            and result.stderr.find("Empty polytope or unbounded polytope!")
+            > -1
+        ):
+            return 0
+
+        # Return the last line of stdout which contains the # of lattice points
+        if len(result.stdout) > 0:
+            return int(result.stdout.splitlines()[-1:][0])
+        else:  # LattE sometimes gives back the result via stderr (don't ask why)
+            last_line = result.stderr.splitlines()[-1:][0]
+            last_word = last_line.split(" ")[-1:][0]
+            return int(last_word.replace(".", ""))
 
 
 class ProbingRectangle(Rectangle):
