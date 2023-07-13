@@ -578,7 +578,7 @@ class Prober:
             if pss:
                 return sum(
                     [
-                        self.psshopgraph[n1][n2]["hop"].uncertainty_pss
+                        self.psshopgraph[n1][n2]["hop"].uncertainty
                         for n1, n2 in target_hops
                     ]
                 )
@@ -600,11 +600,14 @@ class Prober:
         final_uncertainty_total = uncertainty_for_target_hops()
         total_gain_bits = initial_uncertainty_total - final_uncertainty_total
         if num_probes == 0:
-            print("Did zero probes, can't calculate probing speed!")
+            print(
+                "Did zero probes, can't calculate probing speed, nor total_gain!"
+            )
             probing_speed = 0
+            total_gain = 0
         else:
             probing_speed = total_gain_bits / num_probes
-        total_gain = total_gain_bits / initial_uncertainty_total
+            total_gain = total_gain_bits / initial_uncertainty_total
         return total_gain, probing_speed
 
     def reset_all_estimates(self, pss=False):

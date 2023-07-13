@@ -35,10 +35,10 @@ from experiments import experiment_1, experiment_2, experiment_3
 from prober import Prober
 
 SNAPSHOT_FILENAME = "./snapshots/listchannels-2021-12-09.json"
-DATESTRING = "2021-12-09"
-# DATESTRING = "2022-11-25"
-GML_FOLDER = "./graph_exports/"
-# GML_FOLDER = "./tests/data/"
+# DATESTRING = "2021-12-09"
+DATESTRING = "2022-11-25"
+# GML_FOLDER = "./graph_exports/"
+GML_FOLDER = "./tests/data/"
 ENTRY_CHANNEL_CAPACITY = 10 * 100 * 1000 * 1000
 # top 10 nodes by degree as per https://1ml.com/node?order=channelcount
 ENTRY_NODES = [

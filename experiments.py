@@ -376,7 +376,8 @@ def experiment_3(
     # on/off) * 2 (binary search on/off) = 8
     for i, pss in enumerate((True, False)):
         for j, remote_probing in enumerate((False, True)):
-            for k, bs in enumerate((True, False)):
+            # TODO: non-bs in PSS is extremely slow.
+            for k, bs in enumerate((True, True)):
                 pos = 4 * i + 2 * j + k
                 proc = Process(
                     target=run_and_store_result,
@@ -396,10 +397,10 @@ def experiment_3(
                 )
                 procs.append(proc)
                 # Uncomment line below to run everything parallel.
-                # proc.start()
+                proc.start()
     for proc in procs:
         # Uncomment line below to run everything in series.
-        proc.start()
+        # proc.start()
         proc.join()
     targets_source = "snapshot" if prober is not None else "synthetic"
     x_label = "\nNumber of channels in target hops\n"

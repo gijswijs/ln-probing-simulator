@@ -174,34 +174,35 @@ class Rectangle:
                 )
         return Rectangle(intersection_l_vertex, intersection_u_vertex)
 
-    def cut(self, n, inequality="<"):
+    def cut(self, h_l, h_u):
         """
-        Slice a rectangle/cube by a value n. Return the cardinality of
-        the set of latice points for which the sum of its coordinates
-        follows the inequality given. default inequality sum(x_i, y_i,
-        z_i) < n.
+        Return the count of the lattice points of the polytope defined
+        by the the rectangle (or hyperbox in higher dimensions) and the
+        lower bound and higher bound of the forwarding ability of the
+        hop. h_l is strict and h_u is non-strict.
         """
+
         if self.is_empty:
             return 0
 
-        # The polytope is inclusive (the lattice points in the facets
-        # count towards the sum of total points contained). So for the
-        # inequalities `<` and `>` we move the cut-off by one.
-        if inequality in (">"):
-            n += 1
-
-        if inequality in ("<"):
-            n -= 1
+        # LatteE is inclusive (non-strict) w.r.t. the polytope (the
+        # lattice points in the facets count towards the sum of total
+        # points contained), but h_l is strict. We make h_l non-strict:
+        h_l += 1
 
         max_val = sum(self.u_vertex)
 
-        # if n <= 0 and inequality in ("<"):
-        #     return 0
+        if h_l > max_val:
+            raise ValueError(
+                "Lower bound h_l cannot be larger than sum(u_vertex) - 1"
+            )
 
-        # if n <= 0 and inequality in (">"):
-        #     return self.S()
+        if h_u < 0:
+            raise ValueError("Upper bound h_u cannot be smaller than 0")
 
-        if n >= max_val and inequality in ("<"):
+        # If h_l and h_u are still at their initial values from hop
+        # __init__, we don't need to do expensive lattice counts.
+        if h_l == -1 and h_u == max_val:
             return self.S()
 
         # Count the number of dimensions.
@@ -217,16 +218,14 @@ class Rectangle:
         id_arr = np.identity(dimensions, int)
         A = np.concatenate((id_arr, np.negative(id_arr)))
 
-        # Add the vector to the `m x n` matrix, representing the cut,
-        # taking into account if we want everything below or above the
-        # cut.
-        if inequality in (">", ">="):
-            A = np.append(A, [[1] * dimensions], axis=0)
-        else:
-            A = np.append(A, [[-1] * dimensions], axis=0)
+        # Add the vectors to the `m x n` matrix, representing h_l and
+        # h_u.
 
-        if inequality in (">", ">="):
-            n = -n
+        # h_l:
+        A = np.append(A, [[1] * dimensions], axis=0)
+
+        # h_u
+        A = np.append(A, [[-1] * dimensions], axis=0)
 
         # Create the `m x 1` matrix for the  H-representation.
         b = np.concatenate(
@@ -235,7 +234,8 @@ class Rectangle:
                 np.array(self.u_vertex),
             )
         )
-        b = np.append(b, [n])
+        b = np.append(b, [-h_l])
+        b = np.append(b, [h_u])
 
         # Output A and b to file using LattE h-representation
         b = np.atleast_2d(b).T

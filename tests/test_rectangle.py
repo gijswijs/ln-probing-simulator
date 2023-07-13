@@ -10,34 +10,34 @@ def test_box():
 
 
 def test_cut_2d():
-    "A cut of 9 of this 2-dimensional box should return 33"
+    "A h_l (strict) of 8 of this 2-dimensional box should return S() - 33 = 36 - 33 = 3"
     rectangle = Rectangle([0, 0], [5, 5])
-    assert rectangle.cut(9) == 33
+    assert rectangle.cut(8, 10) == 3
 
 
 def test_cut_too_big():
-    "An overzised cut should not return self.S() but self.S()-1"
-    # TODO: CHECK IF THIS STILL HOLDS.
+    "An overzised cut should raise an ValueError"
     rectangle = Rectangle([0], [2000000])
-    assert rectangle.cut(2249999) == 2000001
+    with pytest.raises(ValueError):
+        rectangle.cut(2249999, 2250000)
 
 
 @pytest.mark.parametrize(
     "cut, result",
-    [(0, 0), (1, 1), (2, 3), (3, 4), (4, 4), (5, 4)],
+    [(-1, 4), (0, 3), (1, 1)],
 )
 def test_cut_unit_square(cut, result):
-    "This cut returned a value bigger than self.S() which is wrong."
+    "h_l with unit square"
     rectangle = Rectangle(
         [0, 0],
         [1, 1],
     )
-    assert rectangle.cut(cut) == result
+    assert rectangle.cut(cut, 2) == result
 
 
 @pytest.mark.parametrize(
     "cut, result",
-    [(0, 0), (1, 1), (2, 4), (3, 7), (4, 8), (5, 8), (10, 8)],
+    [(-1, 8), (0, 7), (1, 4), (2, 1)],
 )
 def test_cut_unit_cube(cut, result):
     "This cut returned a value bigger than self.S() which is wrong."
@@ -45,7 +45,7 @@ def test_cut_unit_cube(cut, result):
         [0, 0, 0],
         [1, 1, 1],
     )
-    assert rectangle.cut(cut) == result
+    assert rectangle.cut(cut, 3) == result
 
 
 def test_cut_too_big2():
@@ -62,165 +62,150 @@ def test_cut_too_big2():
             1_000_000,
         ],
     )
-    assert rectangle.cut(19_615_960) < rectangle.S()
+    assert rectangle.cut(19_615_960, sum(rectangle.u_vertex)) < rectangle.S()
 
 
-def test_cut_leq():
-    "A cut of 4 of this 2-dimensional box should return 13"
-    rectangle = Rectangle([0, 0], [3, 3])
-    assert rectangle.cut(4, "<=") == 13
+# def test_cut_leq():
+#     "A cut of 4 of this 2-dimensional box should return 13"
+#     rectangle = Rectangle([0, 0], [3, 3])
+#     assert rectangle.cut(4, "<=") == 13
 
 
-def test_cut_geq():
-    "A cut of 4 of this 2-dimensional box should return 6"
-    rectangle = Rectangle([0, 0], [3, 3])
-    assert rectangle.cut(4, ">=") == 6
+# def test_cut_geq():
+#     "A cut of 4 of this 2-dimensional box should return 6"
+#     rectangle = Rectangle([0, 0], [3, 3])
+#     assert rectangle.cut(4, ">=") == 6
 
 
-def test_cut_greater():
-    "A cut of 4 of this 2-dimensional box should return 6"
-    rectangle = Rectangle([0, 0], [3, 3])
-    assert rectangle.cut(4, ">") == 3
+# def test_cut_greater():
+#     "A cut of 4 of this 2-dimensional box should return 6"
+#     rectangle = Rectangle([0, 0], [3, 3])
+#     assert rectangle.cut(4, ">") == 3
 
 
-def test_cut_less():
-    "A cut of 4 of this 2-dimensional box should return 6"
-    rectangle = Rectangle([0, 0], [3, 3])
-    assert rectangle.cut(4, "<") == 10
+# def test_cut_less():
+#     "A cut of 4 of this 2-dimensional box should return 6"
+#     rectangle = Rectangle([0, 0], [3, 3])
+#     assert rectangle.cut(4, "<") == 10
 
 
 def test_cut_4d():
-    "A cut of 12 (4 * 3) of this 4-dimensional box should return all 4**4 -1 = 255"
+    "A h_l of 11 (strict) (4 * 3 - 1) of this 4-dimensional box should return 1"
     rectangle = Rectangle([0, 0, 0, 0], [3, 3, 3, 3])
-    assert rectangle.cut(12) == 255
+    assert rectangle.cut(11, 12) == 1
 
 
 def test_cut_3d():
-    "A cut of 9 (3 * 3) of this 3-dimensional box should return all 4**3 -1 = 63"
+    "A h_l of 8 (3 * 3 - 1) of this 3-dimensional box should return 1"
     rectangle = Rectangle([0, 0, 0], [3, 3, 3])
-    assert rectangle.cut(9) == 63
+    assert rectangle.cut(8, 9) == 1
 
 
 def test_cut_a():
-    "A cut of 1 of this 3-dimensional box should return 1"
+    "A h_l of 0 of this 3-dimensional box should return 1"
     rectangle = Rectangle([0, 0, 0], [1, 1, 1])
-    assert rectangle.cut(1) == 1
+    assert rectangle.cut(0, 3) == 7
 
 
 def test_cut_b():
-    "A cut of 1 of this 3-dimensional box should return 1"
+    "A h_l of 1 of this 3-dimensional box should return 4"
     rectangle = Rectangle([0, 0, 0], [1, 1, 1])
-    assert rectangle.cut(2) == 4
+    assert rectangle.cut(1, 3) == 4
 
 
-def test_cut_c():
-    "A cut of 8 of this 3-dimensional box should return 8"
-    rectangle = Rectangle([0, 0, 0], [1, 1, 1])
-    assert rectangle.cut(4) == 8
+# def test_cut_c():
+#     "A cut of 8 of this 3-dimensional box should return 8"
+#     rectangle = Rectangle([0, 0, 0], [1, 1, 1])
+#     assert rectangle.cut(4) == 8
 
 
 def test_cut_d():
-    "A cut of 1 of this 3-dimensional box should return 1"
+    "A h_l of 5 of this 3-dimensional box should return 1"
     rectangle = Rectangle([0, 0, 0], [3, 1, 2])
-    assert rectangle.cut(6) == 23
+    assert rectangle.cut(5, 6) == 1
 
 
 def test_cut_1():
-    "A cut of 1 of this 3-dimensional box should return 1"
+    "A h_l of 0 of this 3-dimensional box should return 104"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    assert rectangle.cut(1) == 1
+    assert rectangle.cut(0, 12) == 104
 
 
 def test_cut_2():
-    "A cut of 2 of this 3-dimensional box should return 4"
+    "A h_l of 1 of this 3-dimensional box should return 101"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    assert rectangle.cut(2) == 4
+    assert rectangle.cut(1, 12) == 101
 
 
 def test_cut_3():
-    "A cut of 3 of this 3-dimensional box should return 9"
+    "A h_l of 2 of this 3-dimensional box should return 95"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 10 because the # of lattice points in a pyramid with
-    # sides 2 is 10
-    assert rectangle.cut(3) == 10
+    assert rectangle.cut(2, 12) == 95
+
+
+def test_cut_3_inverse():
+    "A h_u of 9 of this 3-dimensional box should return 95"
+    rectangle = Rectangle([0, 0, 0], [6, 2, 4])
+    assert rectangle.cut(-1, 9) == 95
+
+
+def test_cut_3_double():
+    "A h_l of 2 and a h_u of 9 of this 3-dimensional box should return 85"
+    rectangle = Rectangle([0, 0, 0], [6, 2, 4])
+    assert rectangle.cut(2, 9) == 85
 
 
 def test_cut_4():
-    "A cut of 4 of this 3-dimensional box should return 9"
+    "A h_l of 3 of this 3-dimensional box should return 86"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 9 because the # of lattice points in a pyramid with
-    # sides 3 is 20, but a pyramid of size 0 sticks outside of the
-    # rectangle, because it has depth 2. That accounts for 1 lattice
-    # points that should be deducted.
-    assert rectangle.cut(4) == 19
+    assert rectangle.cut(3, 12) == 86
 
 
 def test_cut_5():
-    "A cut of 5 of this 3-dimensional box should return 24"
+    "A h_l of 4 of this 3-dimensional box should return 74"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 24 because the # of lattice points in a pyramid with
-    # size 4 is 35, but we have a pyramids sticking out of the
-    # rectangle, with size 1. That accounts for 4 lattice points that
-    # should be deducted.
-    assert rectangle.cut(5) == 31
+    assert rectangle.cut(4, 12) == 74
 
 
 def test_cut_7():
-    "A cut of 7 of this 3-dimensional box should return 38"
+    "A h_l of 6 of this 3-dimensional box should return 45"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 60 because the # of lattice points in a pyramid with
-    # size 6 is 84, but we have 2 pyramids sticking out of the
-    # rectangle, with size 3 and 1, whose lattice points sum to 20 +
-    # 4 = 24.
-    assert rectangle.cut(7) == 60
+    assert rectangle.cut(6, 12) == 45
 
 
 def test_cut_8():
-    "A cut of 8 of this 3-dimensional box should return 38"
+    "A h_l of 7 of this 3-dimensional box should return 31"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 74 because the # of lattice points in a pyramid with
-    # size 7 is 120, but we have 3 pyramids sticking out of the
-    # rectangle, with size 4, 2 and 0, whose lattice points sum to 35 + 10 +
-    # 1 = 46. We also have overlap of 4 lattice points
-    assert rectangle.cut(8) == 74
+    assert rectangle.cut(7, 12) == 31
 
 
 def test_cut_11():
-    "A cut of 11 of a 3-dimensional box should return 101"
+    "A h_l of 10 of a 3-dimensional box should return 4"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 101 because the # of lattice points in a pyramid with
-    # size 10 is 286, but we have 3 pyramids sticking out of the
-    # rectangle, with size 7, 5 and 3, whose lattice points sum to 120 +
-    # 56 + 20 = 196. We have two overlapping pyramids of size 0 and 2,
-    # so 1 + 10 = 11 overlapping lattice points
-    assert rectangle.cut(11) == 101
+    assert rectangle.cut(10, 12) == 4
 
 
 def test_cut_11_translated():
-    "A cut of 11 of a 3-dimensional box should return 101"
+    "A h_l of 10 of a 3-dimensional box should return 4"
     rectangle = Rectangle([2, 5, 6], [8, 7, 10])
-    # We expect 101 because the # of lattice points in a pyramid with
-    # size 10 is 286, but we have 3 pyramids sticking out of the
-    # rectangle, with size 7, 5 and 3, whose lattice points sum to 120 +
-    # 56 + 20 = 196. We have two overlapping pyramids of size 0 and 2,
-    # so 1 + 10 = 11 overlapping lattice points
-    assert rectangle.cut(24) == 101
+    assert rectangle.cut(23, 25) == 4
+
+
+def test_cut_LattE_error_1():
+    "A h_l of 10 of a 3-dimensional box should return 4"
+    rectangle = Rectangle([0, 425937], [249999, 425939])
+    assert rectangle.cut(-1, 249999) == 250000
 
 
 def test_cut_12():
-    "A cut of 12 of a 3-dimensional box should return 104"
+    "A h_l of 11 of a 3-dimensional box should return 1"
     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 104 because the # of lattice points in a pyramid with
-    # size 11 is 364, but we have 3 pyramids sticking out of the
-    # rectangle, with size 8, 6 and 4, whose lattice points sum to 156 +
-    # 84 + 35 = 284. We have two overlapping pyramids of size 1 and 3,
-    # so 4 + 20 = 24 overlapping lattice points -> 364 - 284 + 24
-    assert rectangle.cut(12) == 104
+    assert rectangle.cut(11, 12) == 1
 
 
-def test_cut_13():
-    "A cut of 13 of a 3-dimensional box should return 105"
-    rectangle = Rectangle([0, 0, 0], [6, 2, 4])
-    # We expect 105 because 13 is bigger than the max_value (6+2+4) so
-    # all lattice points inside the box should be returned.
-    assert rectangle.cut(13) == 105
+# def test_cut_13():
+#     "A cut of 13 of a 3-dimensional box should return 105"
+#     rectangle = Rectangle([0, 0, 0], [6, 2, 4])
+#     # We expect 105 because 13 is bigger than the max_value (6+2+4) so
+#     # all lattice points inside the box should be returned.
+#     assert rectangle.cut(13) == 105

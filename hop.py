@@ -31,9 +31,13 @@ Luxembourg SPDX-License-Identifier: MIT
 """
   A model of a hop with parallel channels.
 """
+import subprocess
+import tempfile
 from itertools import product
 from math import log2
 from random import randrange
+
+import numpy as np
 
 from rectangle import ProbingRectangle, Rectangle
 
@@ -92,7 +96,6 @@ class Hop:
 
         self.granularity = granularity
         self.uncertainty = None  # will be set later
-        self.uncertainty_pss = None  # will be set later
 
         self.set_h_and_g(pss=pss)
 
@@ -220,126 +223,10 @@ class Hop:
             )
         else:
             self.R_b = Rectangle([b_l_i + 1 for b_l_i in self.b_l], self.b_u)
-            self.R_b_dir0 = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i in self.e[dir0]
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i in self.e[dir0]
-                ],
-            )
-            self.R_b_not_dir0 = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i not in self.e[dir0]
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i not in self.e[dir0]
-                ],
-            )
-            self.R_b_dir1 = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i in self.e[dir1]
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i in self.e[dir1]
-                ],
-            )
-            self.R_b_not_dir1 = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i not in self.e[dir1]
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i not in self.e[dir1]
-                ],
-            )
-            self.R_b_pss = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i not in self.a
-                ],
-                [b_u_i for i, b_u_i in enumerate(self.b_u) if i not in self.a],
-            )
-            self.R_b_dir0_pss = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i in self.e[dir0] and i not in self.a
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i in self.e[dir0] and i not in self.a
-                ],
-            )
-            self.R_b_not_dir0_pss = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i not in self.e[dir0] and i not in self.a
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i not in self.e[dir0] and i not in self.a
-                ],
-            )
-            self.R_b_dir1_pss = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i in self.e[dir1] and i not in self.a
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i in self.e[dir1] and i not in self.a
-                ],
-            )
-            self.R_b_not_dir1_pss = Rectangle(
-                [
-                    b_l_i + 1
-                    for i, b_l_i in enumerate(self.b_l)
-                    if i not in self.e[dir1] and i not in self.a
-                ],
-                [
-                    b_u_i
-                    for i, b_u_i in enumerate(self.b_u)
-                    if i not in self.e[dir1] and i not in self.a
-                ],
-            )
-            cut_h_l = self.R_b_dir0.cut(self.h_l, "<") * max(
-                self.R_b_not_dir0.S(), 1
-            )
-            cut_g_l = self.R_b_dir1.cut(sum(self.c) - self.g_l, ">") * max(
-                self.R_b_not_dir1.S(), 1
-            )
-            cut_h_l_pss = self.R_b_dir0_pss.cut(self.h_l, "<") * max(
-                self.R_b_not_dir0_pss.S(), 1
-            )
-            cut_g_l_pss = self.R_b_dir1_pss.cut(
-                sum(self.c) - self.g_l, ">"
-            ) * max(self.R_b_not_dir1_pss.S(), 1)
-            self.S_F = self.R_b.S() - cut_h_l - cut_g_l
-            self.S_F_pss = self.R_b_pss.S() - cut_h_l_pss - cut_g_l_pss
-            self.uncertainty_pss = max(
-                0, log2(self.S_F_pss) - log2(self.granularity)
+            # optimal_h_l = max(self.h_l, sum(self.c) - self.g_u - 1)
+            # optimal_h_u = min(self.h_u, sum(self.c) - self.g_l - 1)
+            self.S_F = self.S_F_generic_pss(
+                self.h_l, self.h_u, self.g_l, self.g_u, self.R_b
             )
         self.uncertainty = max(0, log2(self.S_F) - log2(self.granularity))
         assert all(
@@ -591,6 +478,166 @@ class Hop:
         assert S_F >= 0, self
         return S_F
 
+    def S_F_generic_pss(self, h_l, h_u, g_l, g_u, R_b):
+        """
+        Return the count of the lattice points of the polytope defined
+        by the the rectangle (or hyperbox in higher dimensions) R_b and
+        the lower bound and higher bound of the forwarding abilities of
+        the hop in both directions. h_l and g_l are strict, h_u and g_u
+        non-strict.
+        """
+
+        if R_b.is_empty:
+            return 0
+
+        # LatteE is inclusive (non-strict) w.r.t. the polytope (the
+        # lattice points in the facets count towards the sum of total
+        # points contained), but h_l is strict. We make h_l non-strict:
+        h_l += 1
+        g_l += 1
+
+        max_val_dir0 = sum(self.c[i] for i in self.e[dir0])
+        max_val_dir1 = sum(self.c[i] for i in self.e[dir1])
+
+        if h_l > max_val_dir0:
+            raise ValueError(
+                "Lower bound h_l cannot be larger than sum(capacities enabled in dir0) - 1"
+            )
+
+        if g_l > max_val_dir1:
+            raise ValueError(
+                "Lower bound g_l cannot be larger than sum(capacities enabled in dir1) - 1"
+            )
+
+        if h_u < 0 or g_u < 0:
+            raise ValueError("Upper bound h_u or g_u cannot be smaller than 0")
+
+        # If h_l and h_u are still at their initial values from hop
+        # __init__, we don't need to do expensive lattice counts.
+        if (
+            h_l == 0
+            and h_u == max_val_dir0
+            and g_l == 0
+            and g_u == max_val_dir1
+        ):
+            return R_b.S()
+
+        # g_l and g_u are in dir1. We need to translate the values to dir0 values.
+        g_l = max_val_dir1 - g_l
+        g_u = max_val_dir1 - g_u
+
+        # Count the number of dimensions.
+        dimensions = len(R_b.l_vertex)
+
+        # We wil describe the hyper-rectangle as a convex polytope,
+        # using H-representation.
+
+        # Create an identity array and its element-wise, numerical
+        # negative. These are the vectors of the `m x n` matrix of the
+        # H-representation, representing the facets of the
+        # hyper-rectangle.
+        id_arr = np.identity(dimensions, int)
+        A = np.concatenate((id_arr, np.negative(id_arr)))
+
+        # Add the vectors to the `m x n` matrix, representing the bounds
+
+        # h_l:
+        A = np.append(
+            A,
+            [
+                list(
+                    map(lambda i: 1 if i in self.e[dir0] else 0, range(self.N))
+                )
+            ],
+            axis=0,
+        )
+
+        # h_u
+        A = np.append(
+            A,
+            [
+                list(
+                    map(
+                        lambda i: -1 if i in self.e[dir0] else 0, range(self.N)
+                    )
+                )
+            ],
+            axis=0,
+        )
+
+        # g_l:
+        A = np.append(
+            A,
+            [
+                list(
+                    map(
+                        lambda i: -1 if i in self.e[dir1] else 0, range(self.N)
+                    )
+                )
+            ],
+            axis=0,
+        )
+        # g_u
+        A = np.append(
+            A,
+            [
+                list(
+                    map(lambda i: 1 if i in self.e[dir1] else 0, range(self.N))
+                )
+            ],
+            axis=0,
+        )
+
+        # Create the `m x 1` matrix for the  H-representation.
+        b = np.concatenate(
+            (
+                np.array([-x for x in R_b.l_vertex]),
+                np.array(R_b.u_vertex),
+            )
+        )
+        b = np.append(b, [-h_l])
+        b = np.append(b, [h_u])
+        b = np.append(b, [g_l])
+        b = np.append(b, [-g_u])
+
+        # Output A and b to file using LattE h-representation
+        b = np.atleast_2d(b).T
+        output = np.concatenate((b, A), axis=1)
+
+        latte_file = tempfile.NamedTemporaryFile(mode="w+t", delete=False)
+        latte_file.writelines(
+            " ".join([str(d) for d in np.shape(output)]) + "\n"
+        )
+        for row in output:
+            latte_file.writelines(" ".join([str(x) for x in row]) + "\n")
+
+        latte_file.flush()
+
+        # Run LattE and capture output
+        result = subprocess.run(
+            ["../latte-distro/dest/bin/count", latte_file.name],
+            capture_output=True,
+            text=True,
+        )
+
+        # Close temporary file. This will automatically delete it.
+        latte_file.close()
+
+        if (
+            result.returncode != 0
+            and result.stderr.find("Empty polytope or unbounded polytope!")
+            > -1
+        ):
+            return 0
+
+        # Return the last line of stdout which contains the # of lattice points
+        if len(result.stdout) > 0:
+            return int(result.stdout.splitlines()[-1:][0])
+        else:  # LattE sometimes gives back the result via stderr (don't ask why)
+            last_line = result.stderr.splitlines()[-1:][0]
+            last_word = last_line.split(" ")[-1:][0]
+            return int(last_word.replace(".", ""))
+
     def S_F_a_expected(self, direction, a, pss=False):
         """
         Calculate the _potential_ S(F) if the probe of amount a fails
@@ -692,10 +739,8 @@ class Hop:
                 )
                 new_g_l = self.g_l
             new_R_b = Rectangle(new_b_l, new_b_u)
-            S_F_a = (
-                new_R_b.S()
-                - new_R_b.cut(sum(self.c) - new_g_l, ">")
-                - new_R_b.cut(new_h_l, "<")
+            S_F_a = self.S_F_generic_pss(
+                new_h_l, self.h_u, new_g_l, self.g_u, new_R_b
             )
         # print("  expected area under the cut:", S_F_a, "(assuming
         # failed probe)")
@@ -1350,7 +1395,6 @@ class Hop:
         hop_info["b_l"] = [-1] * self.N
         hop_info["b_u"] = self.c.copy()
         hop_info["uncertainty"] = None
-        hop_info["uncertainty_pss"] = None
 
         def update_b_l_b_u(b_l, b_u, l, u, direction):
             if self.pss:
@@ -1473,114 +1517,6 @@ class Hop:
         R_b = Rectangle(
             [b_l_i + 1 for b_l_i in hop_info["b_l"]], hop_info["b_u"]
         )
-        R_b_dir0 = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i in self.e[dir0]
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i in self.e[dir0]
-            ],
-        )
-        R_b_not_dir0 = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i not in self.e[dir0]
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i not in self.e[dir0]
-            ],
-        )
-        R_b_dir1 = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i in self.e[dir1]
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i in self.e[dir1]
-            ],
-        )
-        R_b_not_dir1 = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i not in self.e[dir1]
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i not in self.e[dir1]
-            ],
-        )
-        R_b_pss = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i not in self.a
-            ],
-            [
-                b_l_u
-                for i, b_l_u in enumerate(hop_info["b_u"])
-                if i not in self.a
-            ],
-        )
-        R_b_dir0_pss = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i in self.e[dir0] and i not in self.a
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i in self.e[dir0] and i not in self.a
-            ],
-        )
-        R_b_not_dir0_pss = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i not in self.e[dir0] and i not in self.a
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i not in self.e[dir0] and i not in self.a
-            ],
-        )
-        R_b_dir1_pss = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i in self.e[dir1] and i not in self.a
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i in self.e[dir1] and i not in self.a
-            ],
-        )
-        R_b_not_dir1_pss = Rectangle(
-            [
-                b_l_i + 1
-                for i, b_l_i in enumerate(hop_info["b_l"])
-                if i not in self.e[dir1] and i not in self.a
-            ],
-            [
-                b_u_i
-                for i, b_u_i in enumerate(hop_info["b_u"])
-                if i not in self.e[dir1] and i not in self.a
-            ],
-        )
         if not self.pss:
             R_h_l = ProbingRectangle(
                 self, direction=dir0, bound=hop_info["h_l"]
@@ -1596,22 +1532,12 @@ class Hop:
             )
             S_F = self.S_F_generic(R_h_l, R_h_u, R_g_l, R_g_u, R_b)
         else:
-            cut_h_l = R_b_dir0.cut(hop_info["h_l"], "<") * max(
-                R_b_not_dir0.S(), 1
-            )
-            cut_g_l = R_b_dir1.cut(sum(self.c) - hop_info["g_l"], ">") * max(
-                R_b_not_dir1.S(), 1
-            )
-            cut_h_l_pss = R_b_dir0_pss.cut(hop_info["h_l"], "<") * max(
-                R_b_not_dir0_pss.S(), 1
-            )
-            cut_g_l_pss = R_b_dir1_pss.cut(
-                sum(self.c) - hop_info["g_l"], ">"
-            ) * max(R_b_not_dir1_pss.S(), 1)
-            S_F = R_b.S() - cut_h_l - cut_g_l
-            S_F_pss = R_b_pss.S() - cut_h_l_pss - cut_g_l_pss
-            hop_info["uncertainty_pss"] = max(
-                0, log2(S_F_pss) - log2(self.granularity)
+            S_F = self.S_F_generic_pss(
+                hop_info["h_l"],
+                hop_info["h_u"],
+                hop_info["g_l"],
+                hop_info["g_u"],
+                R_b,
             )
 
         hop_info["uncertainty"] = max(0, log2(S_F) - log2(self.granularity))

@@ -59,6 +59,14 @@ def test_probe_hop_with_single_channel(hop_instance: Hop):
     assert b_u_dir1[0] == g_u_dir0
 
 
+def test_hop_LattE_error():
+    pss = True
+    hop = Hop([249999, 425939], [0], [1], [], [155000, 425939], pss=pss)
+    hop.b_l[1] = 425938
+    hop.probe(dir0, 249999, pss)
+    assert hop.S_F == 249999
+
+
 def test_probe_hop_with_multiple_channels_no_pss():
     pss = False
     hop = Hop([100000, 60000], [0, 1], [0, 1], [], [70000, 50000])
@@ -96,11 +104,35 @@ def test_probe_hop_with_multiple_channels_pss():
     assert hop.h == 188000
     assert hop.g_u == 90000
     assert hop.g_l == -1
-    assert hop.uncertainty == 61.03751921524554
+    assert hop.uncertainty == 61.037464446274
     # assert hop.S_F == 14_400_988_024_500_260_001 1.3e+19
-    assert hop.S_F == 2_366_596_101_171_202_501
+    assert hop.S_F == 2_366_506_259_887_662_501
     assert hop.b_l == [-1, -1, -1, 9999]
     assert hop.b_u == [40000, 50000, 80000, 100000]
+
+
+def test_probe_hop_with_error_pss():
+    pss = True
+    hop = Hop(
+        [1000000, 5568000, 500000, 5568000, 500000],
+        [0, 3, 4],
+        [0, 1, 2],
+        [1, 2, 3, 4],
+        [355622, 3126295, 469077, 4079402, 130907],
+        pss,
+    )
+    hop.set_h_and_g(pss)
+    hop.probe(dir0, 3117005, pss)
+    # assert hop.h_l == 179999
+    # assert hop.h_u == 270000
+    # assert hop.h == 188000
+    # assert hop.g_u == 90000
+    # assert hop.g_l == -1
+    # assert hop.uncertainty == 61.03751921524554
+    # # assert hop.S_F == 14_400_988_024_500_260_001 1.3e+19
+    # assert hop.S_F == 2_366_596_101_171_202_501
+    # assert hop.b_l == [-1, -1, -1, 9999]
+    # assert hop.b_u == [40000, 50000, 80000, 100000]
 
 
 @pytest.mark.parametrize(

@@ -126,7 +126,7 @@ def probe_single_hop(hop: Hop, bs, jamming, pss=False):
     - num_probes: the total number of probes done
     - num_jams: the total number of jams done
     """
-    initial_uncertainty = hop.uncertainty_pss if pss else hop.uncertainty
+    initial_uncertainty = hop.uncertainty
     num_probes, num_jams = probe_hop_without_jamming(hop, bs, pss=pss), 0
     if jamming:
         for i in range(hop.N):
@@ -142,7 +142,7 @@ def probe_single_hop(hop: Hop, bs, jamming, pss=False):
             num_probes += num_probes_i
             num_jams += num_jams_i
     hop.unjam_all()
-    final_uncertainty = hop.uncertainty_pss if pss else hop.uncertainty
+    final_uncertainty = hop.uncertainty
     gain = initial_uncertainty - final_uncertainty
     # return gain in bits and used number of probes
     return gain, num_probes, num_jams
@@ -160,6 +160,7 @@ def probe_hop_without_jamming(hop: Hop, bs, pss=False):
     - num_probes: the total number of probes done
     """
     num_probes = 0
+    print("Probing new hop\n")
     while hop.worth_probing_h() or hop.worth_probing_g():
         chosen_dir = hop.next_dir(bs, jamming=False, pss=pss)
         if chosen_dir is None:
@@ -168,7 +169,10 @@ def probe_hop_without_jamming(hop: Hop, bs, pss=False):
         amount = hop.next_a(chosen_dir, bs, jamming=False, pss=pss)
         hop.probe(chosen_dir, amount, pss)
         num_probes += 1
-        print("Number of probes" + str(num_probes), end="\r")
+        print(
+            "Probe amount" + str(amount) + "Probe # " + str(num_probes),
+            end="\r",
+        )
     return num_probes
 
 
@@ -215,11 +219,7 @@ def probe_hops_direct(hops, bs, jamming, pss=False):
     """
     for hop in hops:
         hop.set_h_and_g(pss)
-    initial_uncertainty_total = (
-        sum([hop.uncertainty_pss for hop in hops])
-        if pss
-        else sum([hop.uncertainty for hop in hops])
-    )
+    initial_uncertainty_total = sum([hop.uncertainty for hop in hops])
     gains, probes_list = [], []
     for hop in hops:
         gain, probes, jams = probe_single_hop(
@@ -230,11 +230,7 @@ def probe_hops_direct(hops, bs, jamming, pss=False):
         probes_list.append(probes + jams)
     # print("\nProbed with method:", "bs" if bs else "nbs", "with
     # jamming" if jamming else "without jamming")
-    final_uncertainty_total = (
-        sum([hop.uncertainty_pss for hop in hops])
-        if pss
-        else sum([hop.uncertainty for hop in hops])
-    )
+    final_uncertainty_total = sum([hop.uncertainty for hop in hops])
     # print("Final uncertainty:", final_uncertainty_total) print("Total
     # gain:   ", round(sum(gains),2), "after", sum(probes_list),
     # "probes") print("Average per hop:  ",
