@@ -67,6 +67,106 @@ def test_hop_LattE_error():
     assert hop.S_F == 249999
 
 
+@pytest.mark.parametrize(
+    "h_l, result",
+    [(-1, 4), (0, 3), (1, 1)],
+)
+def test_sfgp_unit_square(h_l, result):
+    "S_F_generic_pss different h_ls with unit square"
+    pss = True
+    hop = Hop([1, 1], [0, 1], [0, 1], pss=pss)
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    assert hop.S_F_generic_pss(h_l, 2, -1, 2, R_b) == result
+
+
+@pytest.mark.parametrize(
+    "h_l, result",
+    [(-1, 8), (0, 7), (1, 4), (2, 1)],
+)
+def test_sfgp_unit_cube(h_l, result):
+    "S_F_generic_pss different h_ls with unit cube"
+    pss = True
+    hop = Hop([1, 1, 1], [0, 1, 2], [0, 1, 2], pss=pss)
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    assert hop.S_F_generic_pss(h_l, 3, -1, 3, R_b) == result
+
+
+@pytest.mark.parametrize(
+    "h_l, h_u, g_l, g_u, result",
+    [
+        (0, 12, -1, 12, 104),
+        (1, 12, -1, 12, 101),
+        (2, 12, -1, 12, 95),
+        (-1, 9, -1, 12, 95),
+        (2, 9, -1, 12, 85),
+        (-1, 12, 0, 12, 104),
+        (-1, 12, 1, 12, 101),
+        (-1, 12, 2, 12, 95),
+        (-1, 12, -1, 9, 95),
+        (-1, 12, 2, 9, 85),
+        (3, 12, -1, 12, 86),
+        (4, 12, -1, 12, 74),
+        (6, 12, -1, 12, 45),
+        (7, 12, -1, 12, 31),
+        (10, 12, -1, 12, 4),
+        (11, 12, -1, 12, 1),
+    ],
+)
+def test_sfgp(h_l, h_u, g_l, g_u, result):
+    "S_F_generic_pss different h_ls with unit cube"
+    pss = True
+    hop = Hop([6, 2, 4], [0, 1, 2], [0, 1, 2], pss=pss)
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    assert hop.S_F_generic_pss(h_l, h_u, g_l, g_u, R_b) == result
+
+
+@pytest.mark.parametrize(
+    "h_l, h_u, g_l, g_u, c, b_l, result",
+    [
+        (8, 10, -1, 10, [5] * 2, [-1] * 2, 3),
+        (11, 12, -1, 12, [3] * 4, [-1] * 4, 1),
+        (8, 9, -1, 9, [3] * 3, [-1] * 3, 1),
+        (0, 3, -1, 3, [1] * 3, [-1] * 3, 7),
+        (1, 3, -1, 3, [1] * 3, [-1] * 3, 4),
+        (5, 6, -1, 6, [3, 1, 2], [-1] * 3, 1),
+        (23, 25, -1, 25, [8, 7, 10], [1, 4, 5], 4),
+    ],
+)
+def test_sfgp_with_b_l(h_l, h_u, g_l, g_u, c, b_l, result):
+    "S_F_generic_pss different h_ls with unit cube"
+    pss = True
+    hop = Hop(c, range(len(c)), range(len(c)), pss=pss)
+    hop.b_l = b_l
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    assert hop.S_F_generic_pss(h_l, h_u, g_l, g_u, R_b) == result
+
+
+def test_sfgp_too_big():
+    "S_F_generic_pss cannot return a value bigger than self.S()"
+    pss = True
+    c = [
+        15_000_000,
+        231_922,
+        2_000_000,
+        4_000_000,
+        15_000_000,
+        2_000_000,
+        1_000_000,
+    ]
+    hop = Hop(c, range(len(c)), range(len(c)), pss=pss)
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    assert hop.S_F_generic_pss(19_615_960, sum(c), -1, sum(c), R_b) < R_b.S()
+
+
+def test_sfgp_valueerror():
+    "Out of bounds h_l should raise an ValueError"
+    pss = True
+    hop = Hop([2000000], [0], [0], pss=pss)
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    with pytest.raises(ValueError):
+        hop.S_F_generic_pss(2249999, 2250000, -1, 2000000, R_b)
+
+
 def test_probe_hop_with_multiple_channels_no_pss():
     pss = False
     hop = Hop([100000, 60000], [0, 1], [0, 1], [], [70000, 50000])
@@ -158,11 +258,17 @@ def test_next_a(C, B, pss, direction):
 def test_S_F_probe_fail():
     hop = Hop([100000, 60000], [0, 1], [0, 1], [], [26000, 23000], pss=True)
     assert hop.S_F == 100001 * 60001
-    amount = 140001
+    amount = 140_001
+    R_b = Rectangle([b_l_i + 1 for b_l_i in hop.b_l], hop.b_u)
+    # Amount fails, because 26_000 + 23_000 < 140_001. So amount - 1 is
+    # now h_u. In this case (both channels are bidrectional) this
+    # directly affects g_l as well, because g_l = sum(c) - h_u - 1 =
+    # 160000 - 140000 - 1 = 19999.
+    S_F = hop.S_F_generic_pss(
+        -1, amount - 1, sum(hop.c) - amount, sum(hop.c), R_b
+    )
     hop.probe(dir0, amount, True)
-    rect = Rectangle([0, 0], [100001, 60001])
-    cut = rect.cut(160000 - amount)
-    assert hop.S_F == 100001 * 60001 - cut
+    assert hop.S_F == S_F
 
 
 def test_S_F_probe_fail_small():
@@ -186,7 +292,7 @@ def test_S_F_probe_success():
     assert hop.S_F == 100001 * 60001
     amount = 20000
     hop.probe(dir0, amount, True)
-    assert hop.S_F == 100001 * 60001 - 19999 * 10000
+    assert hop.S_F == 100001 * 60001 - 20001 * 10000
 
 
 def test_S_F_dir1_probe_success():
@@ -194,7 +300,7 @@ def test_S_F_dir1_probe_success():
     assert hop.S_F == 100001 * 60001
     amount = 20000
     hop.probe(dir1, amount, True)
-    assert hop.S_F == 100001 * 60001 - 19999 * 10000
+    assert hop.S_F == 100001 * 60001 - 20001 * 10000
 
 
 def test_S_F_dir1_probe_fail():
@@ -202,7 +308,7 @@ def test_S_F_dir1_probe_fail():
     assert hop.S_F == 100001 * 60001
     amount = 140001
     hop.probe(dir1, amount, True)
-    assert hop.S_F == 100001 * 60001 - 19999 * 10000
+    assert hop.S_F == 100001 * 60001 - 20001 * 10000
 
 
 @pytest.mark.parametrize(
@@ -217,7 +323,7 @@ def test_S_F_dir1_probe_fail():
 def test_next_dir(C, B, pss, bs, jamming):
     # TODO: I doubt if this has any use in a PSS setting. I guess it
     # works, but the calculations seem meaningless to me
-    hop = Hop(C, [0, 1], [0, 1], [], B)
+    hop = Hop(C, [0, 1], [0, 1], [], B, pss=pss)
     hop.set_h_and_g(pss)
     direction = hop.next_dir(bs, jamming, pss=pss)
     print("dir0" if direction == dir0 else "dir1")

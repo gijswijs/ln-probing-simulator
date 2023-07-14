@@ -370,34 +370,33 @@ def experiment_3(
 
     procs = []
     manager = Manager()
-    gains_results = manager.list([0 for _ in range(4)])
-    speed_results = manager.list([0 for _ in range(8)])
+    gains_results = manager.list([0 for _ in range(2)])
+    speed_results = manager.list([0 for _ in range(4)])
+    bs = True
     # Total number of experiments: 2 (pss on/of) * 2 (remote_probing
-    # on/off) * 2 (binary search on/off) = 8
+    # on/off) = 4
     for i, pss in enumerate((True, False)):
         for j, remote_probing in enumerate((False, True)):
-            # TODO: non-bs in PSS is extremely slow.
-            for k, bs in enumerate((True, True)):
-                pos = 4 * i + 2 * j + k
-                proc = Process(
-                    target=run_and_store_result,
-                    args=(
-                        gains_results,
-                        speed_results,
-                        pos,
-                        jamming,
-                        remote_probing,
-                        bs,
-                        pss,
-                        NUM_CHANNELS_IN_TARGET_HOPS,
-                        num_runs_per_experiment,
-                        prober,
-                        num_target_hops,
-                    ),
-                )
-                procs.append(proc)
-                # Uncomment line below to run everything parallel.
-                proc.start()
+            pos = 2 * i + j
+            proc = Process(
+                target=run_and_store_result,
+                args=(
+                    gains_results,
+                    speed_results,
+                    pos,
+                    jamming,
+                    remote_probing,
+                    bs,
+                    pss,
+                    NUM_CHANNELS_IN_TARGET_HOPS,
+                    num_runs_per_experiment,
+                    prober,
+                    num_target_hops,
+                ),
+            )
+            procs.append(proc)
+            # Uncomment line below to run everything parallel.
+            proc.start()
     for proc in procs:
         # Uncomment line below to run everything in series.
         # proc.start()

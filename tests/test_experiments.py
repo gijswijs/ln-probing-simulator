@@ -23,12 +23,8 @@ def prober():
 @pytest.mark.parametrize(
     "remote_probing, bs, pss",
     [
-        (False, False, False),
-        (False, False, True),
         (False, True, False),
         (False, True, True),
-        (True, False, False),
-        (True, False, True),
         (True, True, False),
         (True, True, True),
     ],

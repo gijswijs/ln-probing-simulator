@@ -699,8 +699,7 @@ class Hop:
                 # new_g_u = self.g_u
                 for i in available_channels:
                     # probe failed => all available channels have
-                    # insufficient balances TODO: Seems to me you should
-                    # use the real b_u here...
+                    # insufficient balances
                     new_b_u[i] = min(new_b_u[i], a - 1)
                 new_g_l = max(
                     sum(
@@ -845,6 +844,7 @@ class Hop:
                 else (self.c[i] - self.b_u[i], self.c[i] - self.b_l[i] - 1)
             )
         a = (a_l + a_u + 1) // 2
+        print("Binary Search amount: " + str(a))
         if not bs and not jamming:
             # we only do binary search over S(F) in pre-jamming probing
             # phase
@@ -858,6 +858,7 @@ class Hop:
                 if new_a == a:
                     break
                 a = new_a
+            print("Optimal amount: " + str(a))
             # a = new_a(direction, a, a_l, a_u, pss, success)
             # if pss and (
             #     (a_u - a <= 1 and success) or (a - a_l <= 1 and not success)
@@ -924,9 +925,6 @@ class Hop:
             # next_a for the case the probe fails
             a_dir0 = self.next_a(dir0, bs, jamming, pss)
             a_dir1 = self.next_a(dir1, bs, jamming, pss)
-            # if pss:
-            #     a_dir0_success = self.next_a(dir0, bs, jamming, pss, True)
-            #     a_dir1_success = self.next_a(dir1, bs, jamming, pss, True)
 
             if bs or prefer_small_amounts:
                 # choose smaller amount: more likely to pass
